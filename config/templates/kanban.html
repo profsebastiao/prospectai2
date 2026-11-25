@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Kanban | ProspectAI{% endblock %}
+{% block heading %}Kanban de tarefas{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'accounts/kanban.css' %}?v=assigned-1">{% endblock %}
+{% block page_actions %}<a class="button primary" href="{% url 'gestao_novo' 'tarefas' %}">+ Nova tarefa</a>{% endblock %}
+{% block content %}
+<section class="kanban-overview panel" aria-label="Resumo das tarefas filtradas">
+    <dl class="kanban-metrics">
+        <div><dt>Total</dt><dd>{{ total }}</dd></div>
+        <div><dt>Pendentes</dt><dd>{{ pendentes }}</dd></div>
+        <div class="kanban-metric-done"><dt>Concluídas</dt><dd>{{ concluidas }}</dd></div>
+        <div class="kanban-metric-overdue"><dt>Atrasadas</dt><dd>{{ atrasadas }}</dd></div>
+    </dl>
+    <div class="kanban-progress">
+        <span>Progresso</span><progress max="100" value="{{ progresso }}" aria-label="Progresso das tarefas"></progress><strong>{{ progresso }}%</strong>
+    </div>
+</section>
+<form method="get" class="panel kanban-filters" role="search" aria-label="Filtrar tarefas">
+    <div class="record-field">
+        <label for="kanban-search">Buscar tarefa ou projeto</label>
+        <input type="search" id="kanban-search" name="q" value="{{ busca }}" maxlength="100">
+    </div>
+    <div class="record-field">
+        <label for="kanban-client">Cliente</label>
+        <select name="cliente" id="kanban-client">
+            <option value="">Todos</option>
+            {% for cliente in clientes %}
+            <option value="{{ cliente.pk }}"{% if cliente_id == cliente.pk|stringformat:"s" %} selected{% endif %}>{{ cliente.nome }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="record-field">
+        <label for="kanban-project">Projeto</label>
+        <select name="projeto" id="kanban-project">
+            <option value="">Todos</option>
+            {% for projeto in projetos %}
+            <option value="{{ projeto.pk }}"{% if projeto_id == projeto.pk|stringformat:"s" %} selected{% endif %}>{{ projeto.nome }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="record-actions">
+        <label class="kanban-mine">
+            <input type="checkbox" name="minhas" value="1"{% if minhas %} checked{% endif %}>
+            Minhas tarefas
+        </label>
+        <button class="button primary" type="submit">Filtrar</button>
+        {% if busca or cliente_id or projeto_id or minhas %}<a class="button quiet" href="{% url 'kanban' %}">Limpar</a>{% endif %}
+    </div>
+</form>
+<nav class="kanban-stage-links" aria-label="Ir para etapa">
+    {% for coluna in colunas %}
+    <a class="button secondary" href="#etapa-{{ coluna.codigo }}">{{ coluna.nome }} · {{ coluna.tarefas|length }}</a>
+    {% endfor %}
+</nav>
+<div class="board-scroll" role="region" aria-label="Quadro Kanban" tabindex="0">
+    <div class="kanban-board">
+        {% for coluna in colunas %}
+        <section class="kanban-column" id="etapa-{{ coluna.codigo }}" data-status="{{ coluna.codigo }}" aria-labelledby="titulo-{{ coluna.codigo }}">
+            <h2 id="titulo-{{ coluna.codigo }}">{{ coluna.nome }} <span class="kanban-count">{{ coluna.tarefas|length }}</span></h2>
+            {% for tarefa in coluna.tarefas %}
+            <article class="kanban-card" aria-labelledby="kanban-task-{{ tarefa.pk }}">
+                <a class="kanban-task-title" id="kanban-task-{{ tarefa.pk }}" href="{% url 'gestao_editar' 'tarefas' tarefa.pk %}">{{ tarefa.titulo }}</a>
+                {% if tarefa.prazo %}
+                <div class="kanban-due{% if tarefa.status != 'concluida' and tarefa.prazo < hoje %} is-overdue{% elif tarefa.status != 'concluida' and tarefa.prazo == hoje %} is-today{% endif %}">
+                    <time datetime="{{ tarefa.prazo|date:'Y-m-d' }}">{{ tarefa.prazo|date:"d/m/Y" }}</time>
+                    {% if tarefa.status != "concluida" %}
+                        {% if tarefa.prazo < hoje %}<span>Atrasada</span>
+                        {% elif tarefa.prazo == hoje %}<span>Vence hoje</span>{% endif %}
+                    {% endif %}
+                </div>
+                {% else %}<p class="kanban-due no-date">Sem prazo</p>{% endif %}
+                <p class="kanban-context">{{ tarefa.projeto.nome }} <span aria-hidden="true">&middot;</span> {{ tarefa.projeto.cliente.nome }}</p>
+                <span class="status-tag{% if tarefa.prioridade == 'alta' %} status-today{% endif %}">Prioridade {{ tarefa.get_prioridade_display|lower }}</span>
+                {% if pode_editar %}
+                <details class="kanban-move">
+                    <summary>Mover tarefa</summary>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="tarefa_id" value="{{ tarefa.pk }}">
+                        <label class="visually-hidden" for="status-{{ tarefa.pk }}">Novo status de {{ tarefa.titulo }}</label>
+                        <select id="status-{{ tarefa.pk }}" name="status">
+                            {% for codigo, nome in status_choices %}
+                            <option value="{{ codigo }}"{% if tarefa.status == codigo %} selected{% endif %}>{{ nome }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="button secondary" type="submit">Mover</button>
+                    </form>
+                </details>
+                {% endif %}
+            </article>
+            {% empty %}
+            <p class="kanban-empty">{% if busca or cliente_id or projeto_id or minhas %}Nenhuma tarefa com esses filtros.{% else %}Nenhuma tarefa nesta etapa.{% endif %}</p>
+            {% endfor %}
+        </section>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(() => {
+    let dragged = null;
+
+    const cards = document.querySelectorAll(".kanban-card");
+    const columns = document.querySelectorAll(".kanban-column");
+
+    cards.forEach(card => {
+        const form = card.querySelector(".kanban-move form");
+        if (!form) return;
+
+        card.draggable = true;
+
+        card.addEventListener("dragstart", event => {
+            dragged = card;
+            card.classList.add("dragging");
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", "prospectai-task");
+        });
+
+        card.addEventListener("dragend", () => {
+            card.classList.remove("dragging");
+            columns.forEach(col => col.classList.remove("drop-target"));
+            dragged = null;
+        });
+    });
+
+    columns.forEach(column => {
+        column.addEventListener("dragover", event => {
+            if (!dragged) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            column.classList.add("drop-target");
+        });
+
+        column.addEventListener("dragleave", event => {
+            if (!column.contains(event.relatedTarget)) {
+                column.classList.remove("drop-target");
+            }
+        });
+
+        column.addEventListener("drop", event => {
+            if (!dragged) return;
+            event.preventDefault();
+
+            const card = dragged;
+            const status = column.dataset.status;
+            const form = card.querySelector(".kanban-move form");
+            const select = form?.querySelector("select[name='status']");
+
+            if (!form || !select || !status) return;
+
+            const exists = Array.from(select.options).some(
+                option => option.value === status
+            );
+
+            if (!exists) return;
+
+            if (card.closest(".kanban-column") === column) return;
+
+            select.value = status;
+
+            if (typeof form.requestSubmit === "function") {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

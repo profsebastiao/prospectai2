@@ -1,0 +1,21 @@
+<div class="project-task-group">
+    <h3>{{ grupo }} <span class="status-tag">{{ tarefas|length }}</span></h3>
+    {% if tarefas %}
+    <ul class="record-list">
+        {% for tarefa in tarefas %}
+        <li class="record-row">
+            <div class="record-identity">
+                {% if pode_editar_tarefa %}<a class="client-name" href="{% url 'gestao_editar' 'tarefas' tarefa.pk %}">{{ tarefa.titulo }}</a>
+                {% else %}<strong>{{ tarefa.titulo }}</strong>{% endif %}
+            </div>
+            <div class="record-meta">
+                <span class="status-tag{% if tarefa.status == 'concluida' %} status-positive{% elif tarefa.status == 'andamento' or tarefa.status == 'revisao' %} status-progress{% endif %}">{{ tarefa.get_status_display }}</span>
+                {% if tarefa.prazo %}<span>Prazo <time datetime="{{ tarefa.prazo|date:'Y-m-d' }}">{{ tarefa.prazo|date:"d/m/Y" }}</time></span>{% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="record-muted">{{ vazio }}</p>
+    {% endif %}
+</div>

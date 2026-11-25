@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Converter Leads | ProspectAI{% endblock %}
+{% block heading %}Convers&atilde;o de Leads{% endblock %}
+
+{% block extra_head %}
+<style>
+.conversion-panel {
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:24px;
+    margin-top:24px;
+}
+.conversion-panel h2 {
+    margin:0 0 9px;
+    font-size:19px;
+}
+.conversion-panel p {
+    color:var(--muted);
+    font-size:13px;
+}
+.conversion-search {
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin:22px 0;
+}
+.conversion-search input {
+    flex:1;
+    min-width:180px;
+    padding:12px;
+    border:1px solid #bdc5d9;
+    border-radius:10px;
+}
+.conversion-search button,
+.convert-button {
+    background:var(--purple);
+    border:0;
+    border-radius:10px;
+    padding:11px 15px;
+    color:#fff;
+    cursor:pointer;
+}
+.conversion-table-wrap {overflow-x:auto}
+.conversion-table {
+    width:100%;
+    min-width:650px;
+    border-collapse:collapse;
+}
+.conversion-table th {
+    text-align:left;
+    color:var(--muted);
+    font-size:12px;
+}
+.conversion-table td,
+.conversion-table th {
+    padding:15px 10px;
+    border-bottom:1px solid var(--border);
+}
+.conversion-table td {font-size:13px}
+.conversion-table a {color:var(--purple)}
+.conversion-table small {
+    display:block;
+    color:var(--muted);
+    margin-top:5px;
+}
+.conversion-message {
+    background:var(--purple-soft);
+    padding:12px;
+    border-radius:9px;
+    margin:12px 0;
+}
+.conversion-pages {
+    display:flex;
+    justify-content:space-between;
+    margin-top:20px;
+    gap:12px;
+    font-size:13px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="conversion-panel interior-card">
+    <h2>Do primeiro contato ao cliente</h2>
+    <p>
+        Converta leads, preserve seus dados e mantenha
+        o v&iacute;nculo com o cadastro comercial original.
+    </p>
+
+    {% for mensagem in messages %}
+    <div class="conversion-message">{{ mensagem }}</div>
+    {% endfor %}
+
+    <form method="get" class="conversion-search interior-toolbar">
+        <input name="q" type="search"
+               value="{{ busca }}"
+               placeholder="Pesquisar leads"
+               aria-label="Pesquisar leads">
+        <button type="submit">Pesquisar</button>
+    </form>
+
+    <div class="conversion-table-wrap">
+    <table class="conversion-table interior-table">
+        <thead>
+            <tr>
+                <th>Lead</th>
+                <th>Contato</th>
+                <th>Status</th>
+                <th>A&ccedil;&atilde;o</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in itens %}
+            <tr>
+                <td>
+                    <strong>{{ item.lead.nome }}</strong>
+                    <small>{{ item.lead.empresa|default:"-" }}</small>
+                </td>
+                <td>
+                    {{ item.lead.whatsapp|default:item.lead.telefone|default:"-" }}
+                    <small>{{ item.lead.email|default:"" }}</small>
+                </td>
+                <td><span class="status-tag{% if item.cliente_id %} status-positive{% else %} status-progress{% endif %}">{{ item.lead.get_status_display }}</span></td>
+                <td>
+                    {% if item.cliente_id %}
+                        {% if pode_ver_clientes %}
+                        <a href="{% url 'portal_cliente_editar' item.cliente_id %}">
+                            Ver cliente
+                        </a>
+                        {% else %}
+                        Cliente vinculado
+                        {% endif %}
+                    {% elif pode_converter %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="lead_id"
+                               value="{{ item.lead.pk }}">
+                        <button class="convert-button" type="submit">
+                            Converter em cliente
+                        </button>
+                    </form>
+                    {% else %}
+                    Sem permiss&atilde;o de convers&atilde;o
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">Nenhum lead encontrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <div class="conversion-pages">
+        <span>P&aacute;gina {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+        <div>
+            {% if pagina.has_previous %}
+            <a href="?q={{ busca|urlencode }}&amp;page={{ pagina.previous_page_number }}">
+                Anterior
+            </a>
+            {% endif %}
+            {% if pagina.has_next %}
+            <a href="?q={{ busca|urlencode }}&amp;page={{ pagina.next_page_number }}">
+                Pr&oacute;xima
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

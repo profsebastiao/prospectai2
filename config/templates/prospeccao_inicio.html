@@ -1,0 +1,51 @@
+{% extends "prospeccao_base.html" %}
+{% block title %}Prospecção com IA | ProspectAI{% endblock %}
+{% block heading %}{% if oportunidades %}Encontrar oportunidades{% else %}Analisar um lead{% endif %}{% endblock %}
+{% block content %}
+{% if not groq_conectado %}
+<p class="panel">Conecte a Groq para usar a prospecção com IA.
+    {% if pode_gerenciar_groq %}<a href="{% url 'integracao_groq' %}">Configurar Groq</a>{% endif %}
+</p>
+{% endif %}
+<form method="post" class="panel record-form">
+    {% csrf_token %}
+    {% if identidade %}
+    <h2>Identificar o lead</h2>
+    {% include "record_fields.html" with form=identidade only %}
+    {% endif %}
+    <div class="prospecting-criteria">
+        <h2>Critérios de {{ request.workspace.nome }}</h2>
+        <p class="record-muted">A seleção de serviços vale para esta consulta.{% if criterios.pode_salvar %} Para atualizar ramo, público e região, marque a opção de salvar.{% endif %}</p>
+        {% if sem_servicos %}<p class="record-muted">O catálogo está sem serviços ativos. <a href="{% url 'gestao_lista' 'servicos' %}">Abrir catálogo</a></p>{% endif %}
+        {% include "record_fields.html" with form=criterios only %}
+        {% if oportunidades %}
+        <div class="record-actions record-form-actions"><button class="button secondary" type="submit" name="acao" value="sugerir">Sugerir consultas com Groq</button></div>
+        {% endif %}
+    </div>
+    {% if aviso %}<p class="record-form-error" role="alert">{{ aviso }}</p>{% endif %}
+    {% if sugestoes %}
+    <section class="prospecting-criteria" aria-label="Consultas sugeridas">
+        <h2>Consultas sugeridas</h2>
+        <ul>{% for consulta in sugestoes %}<li>{{ consulta }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+    <section class="prospecting-criteria" aria-labelledby="evidencias-title">
+        <h2 id="evidencias-title">Evidências públicas</h2>
+        <p class="record-muted">Cole os trechos que encontrou e informe os links, se houver. Os links colados não são abertos automaticamente. Use somente material público e retire informações confidenciais.</p>
+        {% if not web_habilitada %}<p class="record-muted">Busca na web da Groq desativada. A análise usa somente os trechos fornecidos.</p>{% endif %}
+        {{ evidencias.management_form }}
+        {{ evidencias.non_form_errors }}
+        {% for evidencia in evidencias %}
+        <details class="prospecting-evidence"{% if forloop.first or evidencia.has_changed or evidencia.errors %} open{% endif %}>
+            <summary>Evidência {{ forloop.counter }}</summary>
+            {% include "record_fields.html" with form=evidencia only %}
+        </details>
+        {% endfor %}
+    </section>
+    <div class="record-actions record-form-actions">
+        <button class="button primary" type="submit" name="acao" value="manual">Analisar evidências fornecidas</button>
+        {% if web_habilitada %}<button class="button secondary" type="submit" name="acao" value="web">Pesquisar na web com Groq (autorizado)</button>{% endif %}
+        <a class="button secondary" href="{% url 'gestao_lista' 'leads' %}">Voltar a Leads</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% for tarefa in tarefas %}
+<a class="agenda-task" href="{% url 'gestao_editar' 'tarefas' tarefa.pk %}">
+    <strong>{{ tarefa.titulo }}</strong>
+    <small>{{ tarefa.projeto.nome }}{% if mostrar_prazo %} · <time datetime="{{ tarefa.prazo|date:'Y-m-d' }}">{{ tarefa.prazo|date:"d/m/Y" }}</time>{% endif %}</small>
+</a>
+{% endfor %}

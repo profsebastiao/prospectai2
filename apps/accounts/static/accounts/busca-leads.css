@@ -1,0 +1,12 @@
+.web-lead-search, .web-lead-result { margin-bottom: 14px; }
+.web-lead-result { max-width: 880px; overflow-wrap: anywhere; }
+.web-lead-result h3 { margin: 0 0 4px; }
+.web-lead-result h4 { margin: 12px 0 5px; }
+.web-lead-result .record-muted { margin-block: 5px; }
+.web-lead-facts { grid-template-columns: repeat(auto-fit,minmax(min(100%,150px),1fr)); }
+.web-lead-excerpt { white-space: pre-line; border-inline-start: 3px solid #5aca9d; padding: 8px 10px; background: var(--background); }
+.web-lead-evidence { padding: 0; list-style: none; }
+.web-lead-evidence:empty { display:none; }
+.web-lead-evidence li { display: grid; gap: 2px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.web-lead-evidence small { color: var(--muted); }
+.web-lead-manual { margin-block: 8px; }

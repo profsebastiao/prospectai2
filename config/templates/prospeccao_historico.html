@@ -1,0 +1,24 @@
+{% extends "prospeccao_base.html" %}
+{% block title %}Histórico de prospecção | ProspectAI{% endblock %}
+{% block heading %}Histórico de prospecção{% endblock %}
+{% block page_actions %}<a class="button primary" href="{% url 'prospeccao_iniciar' 'oportunidades' %}">Encontrar oportunidades</a>{% endblock %}
+{% block content %}
+<section class="panel clients-panel" aria-label="Pesquisas da empresa ativa">
+    {% if pagina.object_list %}
+    <ul class="record-list">
+        {% for pesquisa in pagina %}
+        <li class="record-row">
+            <div class="record-identity"><a class="client-name" href="{% url 'prospeccao_pesquisa' pesquisa.pk %}">{{ pesquisa.consulta }}</a><small>{{ pesquisa.get_modo_display }}</small></div>
+            <time class="record-meta" datetime="{{ pesquisa.criado_em|date:'c' }}">{{ pesquisa.criado_em|date:"d/m/Y H:i" }}</time>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}<p class="list-empty">Nenhuma pesquisa nesta empresa.</p>{% endif %}
+    {% if pagina.has_other_pages %}
+    <nav class="client-pagination" aria-label="Páginas do histórico">
+        {% if pagina.has_previous %}<a class="button secondary" href="{% querystring page=pagina.previous_page_number %}">Anterior</a>{% endif %}
+        {% if pagina.has_next %}<a class="button secondary" href="{% querystring page=pagina.next_page_number %}">Próxima</a>{% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% endblock %}

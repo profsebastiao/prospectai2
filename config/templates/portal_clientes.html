@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Clientes | ProspectAI{% endblock %}
+{% block heading %}Clientes{% endblock %}
+{% block page_actions %}
+    {% if pode_criar %}
+    <a class="button primary" href="{% url 'portal_cliente_novo' %}">
+        {% include "prospect_icon.html" with icon="plus" only %} Novo cliente
+    </a>
+    {% endif %}
+{% endblock %}
+{% block content %}
+<section class="panel clients-panel" aria-label="Lista de clientes">
+    <form method="get" class="client-search" role="search" aria-label="Pesquisar clientes">
+        <div class="search-input">
+            {% include "prospect_icon.html" with icon="search" only %}
+            <label class="visually-hidden" for="client-query">Nome, empresa ou e-mail</label>
+            <input id="client-query" type="search" name="q" value="{{ busca }}"
+                   placeholder="Nome, empresa ou e-mail">
+        </div>
+        <button class="button secondary" type="submit">Pesquisar</button>
+        {% if busca %}
+        <a class="button quiet" href="{% url 'portal_clientes' %}">Limpar</a>
+        {% endif %}
+    </form>
+
+    {% if pagina.object_list %}
+    <table class="client-table" role="table">
+        <thead role="rowgroup">
+            <tr role="row">
+                <th scope="col" role="columnheader">Nome</th>
+                <th scope="col" role="columnheader">Empresa</th>
+                <th scope="col" role="columnheader">Contato</th>
+                <th scope="col" role="columnheader">Situação</th>
+                <th scope="col" role="columnheader">Ações</th>
+            </tr>
+        </thead>
+        <tbody role="rowgroup">
+        {% for cliente in pagina %}
+            <tr role="row">
+                <th scope="row" role="rowheader">
+                    <a class="client-name" href="{% url 'cliente_detalhe' cliente.pk %}">{{ cliente.nome }}</a>
+                </th>
+                <td role="cell"><span class="cell-label" aria-hidden="true">Empresa</span>{{ cliente.empresa|default:"—" }}</td>
+                <td role="cell"><span class="cell-label" aria-hidden="true">Contato</span>{{ cliente.whatsapp|default:cliente.telefone|default:"—" }}</td>
+                <td role="cell"><span class="cell-label" aria-hidden="true">Situação</span>
+                    {% if cliente.ativo %}
+                    <span class="status-tag status-positive">Ativo</span>
+                    {% else %}
+                    <span class="status-tag">Inativo</span>
+                    {% endif %}
+                </td>
+                <td role="cell">
+                    {% if pode_editar %}
+                    <a class="button quiet" href="{% url 'portal_cliente_editar' cliente.pk %}" aria-label="Editar {{ cliente.nome }}">Editar</a>
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="list-empty">{% if busca %}Nenhum cliente encontrado.{% else %}Nenhum cliente cadastrado.{% endif %}</p>
+    {% endif %}
+
+    {% if pagina.paginator.num_pages > 1 %}
+    <nav class="client-pagination" aria-label="Páginas de clientes">
+        <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+        {% if pagina.has_previous %}
+        <a class="button secondary" href="?q={{ busca|urlencode }}&amp;page={{ pagina.previous_page_number }}">Anterior</a>
+        {% endif %}
+        {% if pagina.has_next %}
+        <a class="button secondary" href="?q={{ busca|urlencode }}&amp;page={{ pagina.next_page_number }}">Próxima</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+.prospecting-summary,.prospecting-card,.prospecting-results { margin-bottom: 12px; }
+.prospecting-summary,.prospecting-card { overflow-wrap: anywhere; max-width: 900px; }
+.prospecting-summary h3,.prospecting-card h3 { margin: 0 0 5px; }
+.prospecting-criteria { margin: 12px 0 0; padding-top: 8px; border-top: 1px solid var(--border); }
+.prospecting-summary blockquote,.prospecting-card blockquote { margin: 5px 0; padding: 6px 9px; border-inline-start: 3px solid #5aca9d; background: var(--background); }
+.prospecting-card input { accent-color: var(--purple); }
+.prospecting-card label { cursor: pointer; }
+.prospecting-sources { padding-inline-start: 20px; }
+.prospecting-sources p { margin-top: 3px; }
+
+.prospecting-evidence { margin-top: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; }
+.prospecting-evidence summary { cursor: pointer; font-weight: 650; }
+.prospecting-evidence .record-field { margin-top: 8px; }

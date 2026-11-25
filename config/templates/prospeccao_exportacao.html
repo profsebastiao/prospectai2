@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>{{ titulo }}</title>
+<style>
+body { margin: 2rem auto; max-width: 48rem; padding: 0 1rem; font: 16px/1.55 system-ui,sans-serif; color: #232547; }
+h1 { color: #303376; }
+section { margin-top: 1.6rem; }
+p { white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header>
+    <h1>{{ titulo }}</h1>
+    <dl>
+        <dt>Empresa</dt><dd>{{ empresa }}</dd>
+        <dt>Lead</dt><dd>{{ lead }}</dd>
+        <dt>Data da análise</dt><dd>{{ data_analise|date:"d/m/Y" }}</dd>
+        {% if destinatario %}<dt>Destinatário</dt><dd>{{ destinatario }}</dd>{% endif %}
+    </dl>
+</header>
+<section><h2>Achados e fontes</h2><p>{{ achados|urlize }}</p></section>
+{% if recomendacoes %}<section><h2>Recomendações</h2><p>{{ recomendacoes|urlize }}</p></section>{% endif %}
+</body>
+</html>

@@ -1,0 +1,44 @@
+{% extends "prospeccao_base.html" %}
+{% block title %}Análise de {{ analise.nome_lead }} | ProspectAI{% endblock %}
+{% block heading %}Análise de {{ analise.nome_lead }}{% endblock %}
+{% block content %}
+<section class="panel prospecting-summary">
+    <h2>Canais públicos</h2>
+    <p class="record-muted">Identidade confirmada na <a href="{% url 'prospeccao_pesquisa' analise.pesquisa.pk %}">pesquisa de {{ analise.pesquisa.criado_em|date:"d/m/Y H:i" }}</a>.</p>
+    {% if analise.dados.aviso %}<p class="record-form-error" role="alert">{{ analise.dados.aviso }}</p>{% endif %}
+    <dl class="record-facts">
+        {% for canal in analise.dados.canais %}
+        <div>
+            <dt>{{ canal.canal }}</dt>
+            <dd>
+                {% if canal.valores %}
+                {{ canal.valores|join:", " }}
+                {% if canal.estado == "A confirmar" %}<span class="status-tag status-today">A confirmar</span>{% endif %}
+                {% for url in canal.fontes %}<a href="{{ url }}" target="_blank" rel="noopener noreferrer">Fonte {{ forloop.counter }}</a>{% endfor %}
+                {% else %}{{ canal.estado }}{% endif %}
+            </dd>
+        </div>
+        {% endfor %}
+    </dl>
+    <p class="record-muted">{{ analise.dados.limitacao }}</p>
+    {% for fonte in analise.dados.fontes %}{% if fonte.restrita %}<p>Acesso indisponível ou restrito: {% include "prospeccao_fonte.html" with fonte=fonte only %}</p>{% endif %}{% endfor %}
+</section>
+<section class="panel prospecting-summary">
+    <h2>Achados</h2>
+    {% for item in analise.dados.achados %}
+    <p>{{ item.texto }}</p><blockquote>{{ item.evidencia }}</blockquote>
+    {% include "prospeccao_fonte.html" with fonte=item.fonte only %}
+    {% empty %}<p class="record-muted">Nenhum achado adicional confirmado.</p>{% endfor %}
+</section>
+<section class="panel prospecting-summary">
+    <h2>Serviços que podem fazer sentido</h2>
+    {% for item in analise.dados.recomendacoes %}
+    <h3>{{ item.servico }}</h3><p>{{ item.texto }}</p><blockquote>{{ item.evidencia }}</blockquote>
+    {% include "prospeccao_fonte.html" with fonte=item.fonte only %}
+    {% empty %}<p class="record-muted">Nenhuma recomendação vinculada ao catálogo foi confirmada.</p>{% endfor %}
+</section>
+<form method="post">
+    {% csrf_token %}
+    <button class="button primary" type="submit">Abrir relatório editável</button>
+</form>
+{% endblock %}

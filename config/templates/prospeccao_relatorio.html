@@ -1,0 +1,18 @@
+{% extends "prospeccao_base.html" %}
+{% block title %}Relatório de prospecção | ProspectAI{% endblock %}
+{% block heading %}Revisar relatório{% endblock %}
+{% block content %}
+{% include "record_feedback.html" %}
+<form method="post" class="panel record-form">
+    {% csrf_token %}
+    <h2>{{ relatorio.empresa_nome }} · {{ relatorio.analise.nome_lead }}</h2>
+    <p class="record-muted">Análise de {{ relatorio.analise.criado_em|date:"d/m/Y" }}{% if relatorio.analise.destinatario %} · {{ relatorio.analise.destinatario }}{% endif %}</p>
+    <p class="record-muted">Aprove o texto final antes de baixar. Salvar como rascunho suspende a aprovação anterior.</p>
+    {% include "record_fields.html" with form=form only %}
+    <div class="record-actions record-form-actions">
+        <button type="submit" name="acao" value="rascunho" class="button secondary">Salvar rascunho</button>
+        <button type="submit" name="acao" value="aprovar" class="button primary">Aprovar versão para compartilhar</button>
+        {% if relatorio.aprovado_em %}<a class="button secondary" href="{% url 'prospeccao_exportar' relatorio.pk %}">Baixar versão aprovada</a>{% endif %}
+    </div>
+</form>
+{% endblock %}

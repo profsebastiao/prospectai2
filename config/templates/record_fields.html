@@ -1,0 +1,17 @@
+{% for campo in form.hidden_fields %}{{ campo }}{{ campo.errors }}{% endfor %}
+{% if form.non_field_errors %}<div class="record-form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+{% for campo in form.visible_fields %}
+<div class="record-field{% if campo.errors %} record-field-invalid{% endif %}">
+    {% if campo.use_fieldset %}
+    <fieldset{% if campo.aria_describedby %} aria-describedby="{{ campo.aria_describedby }}"{% endif %}>
+        {{ campo.legend_tag }}
+        {{ campo }}
+    </fieldset>
+    {% else %}
+    {{ campo.label_tag }}
+    {{ campo }}
+    {% endif %}
+    {% if campo.help_text %}<p class="record-field-help" id="{{ campo.auto_id }}_helptext">{{ campo.help_text }}</p>{% endif %}
+    {{ campo.errors }}
+</div>
+{% endfor %}

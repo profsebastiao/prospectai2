@@ -1,0 +1,22 @@
+.agenda-viewbar, .agenda-switch, .agenda-mine { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.agenda-viewbar { justify-content: space-between; margin-bottom: 12px; }
+.agenda-switch [aria-current="page"] { background: var(--purple-soft); color: var(--purple-dark); border-color: var(--purple); }
+.agenda-filter .agenda-mine { font-size: 13px; font-weight: 650; min-height: 40px; }
+.agenda-filter .agenda-mine input { min-height: 0; margin: 0; accent-color: var(--purple); }
+.agenda-week { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 6px; }
+.agenda-week-day { min-width: 0; padding: 8px; min-height: 115px; background: var(--background); border: 1px solid var(--border); border-radius: 9px; }
+.agenda-week-day.is-today { border-color: #5aca9d; background: #edf9f3; }
+.agenda-week-day h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin: 0 0 7px; font-size: 13px !important; overflow-wrap: anywhere; }
+.agenda-week-day h2 time span { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.agenda-week-day .record-muted { margin: 3px 0; }
+.agenda-week-day .agenda-task { background: var(--surface); overflow-wrap: anywhere; }
+.agenda-backlog { margin: 8px 0 12px; border-inline-start: 3px solid #cf6680; }
+.agenda-backlog .agenda-task { padding: 9px; margin-block: 5px; overflow-wrap: anywhere; }
+@media (max-width: 1000px) {
+    .agenda-week { grid-template-columns: repeat(4,minmax(0,1fr)); }
+}
+@media (max-width: 760px) {
+    .agenda-week { grid-template-columns: minmax(0,1fr); }
+    .agenda-week-day { min-height: 0; }
+    .agenda-week-day .agenda-task { min-height: 44px; }
+}

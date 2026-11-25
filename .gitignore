@@ -1,0 +1,26 @@
+# Ambientes Python
+.venv/
+.venv-windows/
+__pycache__/
+*.py[cod]
+
+# Banco local, uploads e segredos
+db.sqlite3
+db.sqlite3.*
+media/
+.env
+*.env
+
+# Backups e lixo local
+_to_delete/
+_backup_*/
+*.bak
+*.bak.*
+Claude outputs/
+*.pdf
+
+# Editores e sistema
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

@@ -1,0 +1,63 @@
+{% extends "prospeccao_base.html" %}
+{% block title %}Resultados de prospecção | ProspectAI{% endblock %}
+{% block heading %}{% if oportunidades %}Oportunidades encontradas{% else %}Confirmar identidade do lead{% endif %}{% endblock %}
+{% block content %}
+{% include "record_feedback.html" %}
+<section class="panel prospecting-summary">
+    <h2>{{ pesquisa.consulta }}</h2>
+    <p class="record-muted">Consulta em {{ pesquisa.criado_em|date:"d/m/Y H:i" }} · {{ pesquisa.criterios.empresa }}</p>
+    {% if pesquisa.criterios.servicos %}
+    <p>Serviços pesquisados: {% for s in pesquisa.criterios.servicos %}{{ s.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    {% endif %}
+    {% for aviso in pesquisa.avisos %}<p class="record-form-error" role="alert">{{ aviso }}</p>{% endfor %}
+    {% if not pesquisa.fontes and not pesquisa.avisos %}<p>Nenhuma fonte pública retornou resultado para esta consulta.</p>{% endif %}
+    {% if pesquisa.fontes and not pesquisa.resultados %}<p>Nenhum candidato com evidência suficiente foi classificado. As fontes coletadas estão disponíveis abaixo.</p>{% endif %}
+</section>
+
+{% if pesquisa.criterios.widget_google %}{% include "prospeccao_google_widget.html" with widget=pesquisa.criterios.widget_google only %}{% endif %}
+{% if pesquisa.resultados %}
+<form method="post" class="prospecting-results">
+    {% csrf_token %}
+    {% for item in pesquisa.resultados %}
+    <article class="panel prospecting-card">
+        {% if oportunidades %}
+        <h3>{% if item.tipo == "insuficiente" %}{{ item.nome }}{% else %}<label><input type="checkbox" name="selecionados" value="{{ forloop.counter0 }}"> {{ item.nome }}</label>{% endif %}</h3>
+        <p><span class="status-tag {% if item.tipo == 'demanda' %}status-positive{% else %}status-progress{% endif %}">{{ item.classificacao }}</span> <span>{{ item.servico }}</span></p>
+        {% if item.regiao %}<p class="record-muted">{{ item.regiao }}</p>{% endif %}
+        <p>{{ item.texto }}</p>
+        {% if item.evidencia %}<blockquote>{{ item.evidencia }}</blockquote>{% endif %}
+        {% include "prospeccao_fonte.html" with fonte=item.fonte only %}
+        {% else %}
+        <h3>{{ item.nome|default:item.titulo }}</h3>
+        {% if item.fonte %}<p><a href="{{ item.fonte }}" target="_blank" rel="noopener noreferrer">{{ item.fonte }}</a></p>{% else %}<p class="record-muted">Trecho fornecido, sem link.</p>{% endif %}
+        {% if item.cidade %}<p>{{ item.cidade }}</p>{% endif %}
+        {% if item.descricao %}<p class="record-muted">{{ item.descricao|truncatechars:250 }}</p>{% endif %}
+        {% if item.perfis %}<ul>{% for perfil in item.perfis %}<li><a href="{{ perfil.url }}" target="_blank" rel="noopener noreferrer">{{ perfil.nome }} {{ perfil.usuario }}</a> · {{ perfil.evidencia }}</li>{% endfor %}</ul>{% endif %}
+        <button class="button primary" type="submit" name="candidato" value="{{ forloop.counter0 }}">Confirmar este candidato</button>
+        {% endif %}
+    </article>
+    {% endfor %}
+    {% if oportunidades %}<button class="button primary" type="submit">Cadastrar selecionados no CRM</button>{% endif %}
+</form>
+{% endif %}
+{% if pesquisa.fontes %}
+<details class="panel prospecting-summary">
+    <summary>Fontes coletadas ({{ pesquisa.fontes|length }})</summary>
+    <ul class="prospecting-sources">
+        {% for fonte in pesquisa.fontes %}
+        <li><strong>{{ fonte.title }}</strong> {% include "prospeccao_fonte.html" with fonte=fonte only %}<p>{{ fonte.content|truncatechars:350 }}</p></li>
+        {% endfor %}
+    </ul>
+</details>
+{% endif %}
+{% if analises %}
+<section class="panel prospecting-summary">
+    <h2>Análises desta consulta</h2>
+    <ul>{% for registro in analises %}<li><a href="{% url 'prospeccao_analise' registro.pk %}">{{ registro.nome_lead }} · {{ registro.criado_em|date:"d/m/Y H:i" }}</a></li>{% endfor %}</ul>
+</section>
+{% endif %}
+<div class="record-actions">
+    <a class="button secondary" href="{% url 'prospeccao_iniciar' pesquisa.modo %}?repetir={{ pesquisa.pk }}">Revisar critérios e evidências</a>
+    <a class="button quiet" href="{% url 'prospeccao_iniciar' pesquisa.modo %}">Nova consulta</a>
+</div>
+{% endblock %}

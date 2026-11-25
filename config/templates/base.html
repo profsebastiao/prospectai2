@@ -1,0 +1,102 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}ProspectAI{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'accounts/app.css' %}?v=sidebar-profile-2">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<a class="skip-link" href="#main-content">Ir para o conteúdo</a>
+<div class="shell">
+    {% with route=request.resolver_match.url_name section=request.resolver_match.kwargs.secao %}
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a class="brand" href="{% url 'dashboard' %}">
+                <span class="brand-symbol" aria-hidden="true">P<span>A</span></span>
+                <strong>ProspectAI</strong>
+            </a>
+            <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-menu" hidden>
+                {% include "prospect_icon.html" with icon="menu" only %} Menu
+            </button>
+        </div>
+        <section class="sidebar-profile" aria-label="Perfil do usuário">
+            <div class="user-avatar" aria-hidden="true">
+                {% if request.user.perfil_prospectai.foto %}
+                    <img src="{% url 'foto_perfil_usuario' %}" alt="">
+                {% else %}
+                    {% with inicial_nome=request.user.first_name|first inicial_sobrenome=request.user.last_name|first %}
+                        {% if inicial_nome %}{{ inicial_nome|upper }}{% if inicial_sobrenome %}{{ inicial_sobrenome|upper }}{% endif %}{% else %}{{ request.user.username|first|upper }}{% endif %}
+                    {% endwith %}
+                {% endif %}
+            </div>
+            <strong class="sidebar-profile-name">{{ request.user.get_full_name|default:request.user.username }}</strong>
+            {% if request.user.email %}<small class="sidebar-profile-email">{{ request.user.email }}</small>{% endif %}
+            {% if request.workspace %}<small class="sidebar-profile-workspace" title="Empresa ativa: {{ request.workspace.nome }}">{{ request.workspace.nome }}</small>{% endif %}
+            <div class="sidebar-profile-links">
+                <a href="{% url 'configuracoes' %}"{% if route == "configuracoes" %} aria-current="page"{% endif %}>Minha conta</a>
+                <a href="{% url 'workspace_select' %}"{% if route == "workspace_select" %} aria-current="page"{% endif %}>{% if request.workspace %}Trocar empresa{% else %}Escolher empresa{% endif %}</a>
+            </div>
+        </section>
+        <nav class="menu" id="main-menu" aria-label="Menu principal">
+            <a href="{% url 'dashboard' %}"{% if route == "dashboard" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="overview" only %} <span>Visão geral</span></a>
+            <div class="menu-group" role="group" aria-labelledby="menu-commercial">
+                <p id="menu-commercial">Comercial</p>
+            <a href="{% url 'gestao_lista' 'leads' %}"{% if section == "leads" or route == "conversao_leads" or route == "buscar_leads_web" or route|slice:":11" == "prospeccao_" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="leads" only %} <span>Leads</span></a>
+            <a href="{% url 'portal_clientes' %}"{% if route == "portal_clientes" or route == "portal_cliente_novo" or route == "portal_cliente_editar" or route == "cliente_detalhe" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="clients" only %} <span>Clientes</span></a>
+            </div>
+            <div class="menu-group" role="group" aria-labelledby="menu-operation">
+                <p id="menu-operation">Operação</p>
+            <a href="{% url 'gestao_lista' 'servicos' %}"{% if section == "servicos" or section == "modelos-de-tarefa" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="service" only %} <span>Serviços</span></a>
+            <a href="{% url 'gestao_lista' 'projetos' %}"{% if section == "projetos" or route == "projeto_detalhe" or route == "projeto_contratacao_novo" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="projects" only %} <span>Projetos</span></a>
+            <a href="{% url 'gestao_lista' 'tarefas' %}"{% if section == "tarefas" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="tasks" only %} <span>Tarefas</span></a>
+            <a href="{% url 'agenda' %}"{% if route == "agenda" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="calendar" only %} <span>Agenda</span></a>
+            <a href="{% url 'kanban' %}"{% if route == "kanban" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="kanban" only %} <span>Kanban</span></a>
+            </div>
+            <a href="{% url 'financeiro' %}"{% if route == "financeiro" or route == "gerar_mensalidades_pagina" or section == "contratos" or section == "cobrancas" or section == "pagamentos" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="finance" only %} <span>Financeiro</span></a>
+            {% if request.user.is_superuser %}
+            <div class="menu-group menu-admin">
+                <a href="{% url 'portal_administracao' %}"{% if route == "portal_administracao" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="shield" only %} <span>Administração da plataforma</span></a>
+            </div>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <main class="main" id="main-content" tabindex="-1">
+        <header class="topbar">
+            <div class="account-bar">
+                <form method="post" action="{% url 'prospectai_logout' %}">
+                    {% csrf_token %}
+                    <button class="button secondary" type="submit">Sair</button>
+                </form>
+            </div>
+            <div class="page-heading">
+                <div class="page-heading-text">
+                    {% block breadcrumb %}{% endblock %}
+                    <h1>{% block heading %}Painel{% endblock %}</h1>
+                </div>
+                {% block page_actions %}{% endblock %}
+            </div>
+        </header>
+        {% block content %}{% endblock %}
+    </main>
+    {% endwith %}
+</div>
+<script>
+(() => {
+    const toggle = document.querySelector(".menu-toggle");
+    const menu = document.getElementById("main-menu");
+    toggle.hidden = false;
+    menu.classList.add("menu-collapsible");
+    toggle.addEventListener("click", () => {
+        const expanded = toggle.getAttribute("aria-expanded") === "true";
+        toggle.setAttribute("aria-expanded", String(!expanded));
+        menu.classList.toggle("menu-open", !expanded);
+    });
+})();
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

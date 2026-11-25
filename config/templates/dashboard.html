@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Visão geral | ProspectAI{% endblock %}
+{% block heading %}Visão geral{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'accounts/dashboard.css' %}?v=today-1">{% endblock %}
+{% block page_actions %}
+<div class="overview-actions">
+    <a class="button secondary" href="{% url 'agenda' %}">Abrir agenda</a>
+    <a class="button primary" href="{% url 'projeto_contratacao_novo' %}">+ Novo projeto</a>
+</div>
+{% endblock %}
+{% block content %}
+<section class="overview-metrics" aria-label="Indicadores">
+    <a class="overview-metric metric-green" href="{% url 'gestao_lista' 'leads' %}"><span>Leads</span><strong>{{ total_leads }}</strong>{% include "prospect_icon.html" with icon="leads" only %}</a>
+    <a class="overview-metric" href="{% url 'portal_clientes' %}"><span>Clientes</span><strong>{{ total_clientes }}</strong>{% include "prospect_icon.html" with icon="clients" only %}</a>
+    <a class="overview-metric" href="{% url 'gestao_lista' 'projetos' %}"><span>Projetos ativos</span><strong>{{ projetos_ativos }}</strong>{% include "prospect_icon.html" with icon="projects" only %}</a>
+</section>
+<section class="overview-card overview-today" aria-labelledby="overview-today-heading">
+    <h2 id="overview-today-heading">Para hoje</h2>
+    <ul class="overview-today-links">
+        <li><a href="{% url 'gestao_lista' 'leads' %}?retorno=hoje"><span>Retornos de leads hoje</span><strong class="status-tag status-today">{{ retornos_hoje }}</strong></a></li>
+        <li><a href="{% url 'gestao_lista' 'leads' %}?retorno=atrasados"><span>Retornos de leads atrasados</span><strong class="status-tag status-urgent">{{ retornos_atrasados }}</strong></a></li>
+        <li><a href="{% url 'gestao_lista' 'tarefas' %}?filtro=minhas-hoje"><span>Minhas tarefas para hoje</span><strong class="status-tag status-progress">{{ minhas_tarefas_hoje }}</strong></a></li>
+    </ul>
+</section>
+<div class="overview-grid overview-operations">
+    <section class="overview-card" aria-labelledby="recent-heading">
+        <div class="overview-card-heading">
+            <h2 id="recent-heading">Atividades recentes</h2>
+            <a href="{% url 'gestao_lista' 'tarefas' %}?filtro=pendentes">{{ tarefas_pendentes }} pendentes</a>
+        </div>
+        <nav class="overview-task-links" aria-label="Atalhos de tarefas">
+            <a href="{% url 'gestao_lista' 'tarefas' %}?filtro=atrasadas">Atrasadas</a>
+            <a href="{% url 'gestao_lista' 'tarefas' %}?filtro=hoje">Vencem hoje</a>
+        </nav>
+        {% if atividades %}
+        <table class="overview-table" role="table">
+            <thead role="rowgroup"><tr role="row"><th scope="col">Tarefa</th><th scope="col">Prazo</th><th scope="col">Status</th></tr></thead>
+            <tbody role="rowgroup">
+                {% for tarefa in atividades %}
+                <tr role="row">
+                    <th scope="row" role="rowheader">
+                        <a href="{% url 'gestao_editar' 'tarefas' tarefa.pk %}">{{ tarefa.titulo }}</a>
+                        <small>{{ tarefa.projeto.nome }}</small>
+                    </th>
+                    <td role="cell">
+                        <span class="overview-cell-label" aria-hidden="true">Prazo</span>
+                        {% if tarefa.prazo %}<time datetime="{{ tarefa.prazo|date:'Y-m-d' }}">{{ tarefa.prazo|date:"d/m/Y" }}</time>{% else %}Sem prazo{% endif %}
+                    </td>
+                    <td role="cell">
+                        <span class="overview-cell-label" aria-hidden="true">Status</span>
+                        <span class="status-tag{% if tarefa.status == 'concluida' %} status-positive{% elif tarefa.prazo and tarefa.prazo < hoje %} status-urgent{% else %} status-progress{% endif %}">{{ tarefa.get_status_display }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="overview-empty">{% include "prospect_icon.html" with icon="tasks" only %}<p>Nenhuma tarefa cadastrada.</p></div>
+        {% endif %}
+    </section>
+
+    <section class="overview-card" aria-labelledby="deadlines-heading">
+        <h2 id="deadlines-heading">Prazos de tarefas</h2>
+        <p class="overview-caption">Pendentes nas próximas 6 semanas, incluindo a atual</p>
+        {% if prazos_semanais %}
+        <ul class="overview-bars" aria-label="Tarefas por semana">
+            {% for semana in prazos_semanais %}
+            <li>
+                <span class="overview-bar-track" aria-hidden="true"><span class="overview-bar-fill" style="--level: {{ semana.altura }}%"></span></span>
+                <strong>{{ semana.total }}</strong><span>{{ semana.label }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="overview-empty">{% include "prospect_icon.html" with icon="calendar" only %}<p>Nenhuma tarefa pendente com prazo nesse período.</p></div>
+        {% endif %}
+    </section>
+</div>
+<div class="overview-grid overview-analysis">
+    <section class="overview-card" aria-labelledby="status-heading">
+        <h2 id="status-heading">Projetos por status</h2>
+        {% if status_projetos %}
+        <div class="overview-donut" style="--segments: {{ rosca }}">
+            <span><strong>{{ total_projetos }}</strong><small>projetos</small></span>
+        </div>
+        <ul class="overview-legend">
+            {% for parte in status_projetos %}
+            <li><i style="--dot: {{ parte.cor }}" aria-hidden="true"></i><span>{{ parte.nome }}</span><strong>{{ parte.total }}</strong></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="overview-empty">{% include "prospect_icon.html" with icon="projects" only %}<p>Nenhum projeto cadastrado.</p></div>
+        {% endif %}
+    </section>
+
+    <section class="overview-card" aria-labelledby="trend-heading">
+        <div class="overview-card-heading">
+            <div><h2 id="trend-heading">Evolução comercial</h2><p class="overview-caption">Novos cadastros nos últimos 6 meses</p></div>
+            {% if evolucao %}
+            <ul class="overview-trend-legend"><li class="month-leads">Leads</li><li class="month-clients">Clientes</li></ul>
+            {% endif %}
+        </div>
+        {% if evolucao %}
+        <svg class="overview-trend" viewBox="0 0 400 146" aria-hidden="true">
+            <path class="trend-grid" d="M16 18H384 M16 55H384 M16 93H384 M16 130H384"/>
+            <polyline class="trend-leads" points="{% for mes in evolucao %}{{ mes.x }},{{ mes.leads_y }} {% endfor %}"/>
+            <polyline class="trend-clients" points="{% for mes in evolucao %}{{ mes.x }},{{ mes.clientes_y }} {% endfor %}"/>
+            {% for mes in evolucao %}
+            <circle class="trend-leads-dot" cx="{{ mes.x }}" cy="{{ mes.leads_y }}" r="3.5"/>
+            <circle class="trend-clients-dot" cx="{{ mes.x }}" cy="{{ mes.clientes_y }}" r="3.5"/>
+            {% endfor %}
+        </svg>
+        <ul class="overview-months" aria-label="Novos cadastros por mês">
+            {% for mes in evolucao %}
+            <li>
+                <span aria-hidden="true">{{ mes.label }}</span><span class="visually-hidden">{{ mes.periodo }}</span>
+                <span class="month-leads"><span class="visually-hidden">Leads:</span> {{ mes.leads }}</span>
+                <span class="month-clients"><span class="visually-hidden">Clientes:</span> {{ mes.clientes }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="overview-empty">{% include "prospect_icon.html" with icon="leads" only %}<p>Nenhum lead ou cliente cadastrado nesse período.</p></div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Financeiro | ProspectAI{% endblock %}
+{% block heading %}Financeiro{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'accounts/financeiro.css' %}?v=1">{% endblock %}
+{% block page_actions %}
+{% if pode_contrato or pode_cobranca or pode_pagamento %}
+<details class="finance-create">
+    <summary class="button primary">+ Cadastrar</summary>
+    <ul>
+        {% if pode_contrato %}<li><a href="{% url 'gestao_novo' 'contratos' %}">Novo contrato</a></li>{% endif %}
+        {% if pode_cobranca %}<li><a href="{% url 'gestao_novo' 'cobrancas' %}">Nova cobrança</a></li>{% endif %}
+        {% if pode_pagamento %}<li><a href="{% url 'gestao_novo' 'pagamentos' %}">Registrar pagamento</a></li>{% endif %}
+    </ul>
+</details>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<section class="panel finance-summary" aria-labelledby="finance-summary-title">
+    <div class="finance-section-heading">
+        <h2 id="finance-summary-title">Resumo do mês</h2>
+        <form method="get" class="finance-filters" aria-label="Filtrar período e cliente">
+            <div class="record-field">
+                <label for="mes">Mês</label>
+                <input type="month" name="mes" id="mes" value="{{ mes }}">
+            </div>
+            {% if clientes %}
+            <div class="record-field">
+                <label for="finance-client">Cliente</label>
+                <select name="cliente" id="finance-client">
+                    <option value="">Todos os clientes</option>
+                    {% for cliente in clientes %}
+                    <option value="{{ cliente.pk }}"{% if cliente_id == cliente.pk|stringformat:"s" %} selected{% endif %}>{{ cliente.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <button class="button secondary" type="submit">Filtrar</button>
+        </form>
+    </div>
+    <dl class="finance-metrics">
+        <div class="finance-received"><dt>Recebido no mês</dt><dd>{{ recebido }}</dd></div>
+        <div><dt>Saldo em aberto</dt><dd>{{ aberto }}</dd></div>
+        <div class="finance-overdue"><dt>Saldo vencido</dt><dd>{{ vencido }}</dd></div>
+    </dl>
+</section>
+
+<section class="panel finance-charges" aria-labelledby="finance-charges-title">
+    <div class="finance-section-heading">
+        <h2 id="finance-charges-title">Cobranças do período</h2>
+        <span class="status-tag status-progress">{{ contratos_ativos }} contrato{{ contratos_ativos|pluralize }} ativo{{ contratos_ativos|pluralize }}</span>
+    </div>
+    {% if linhas %}
+    <table class="finance-table" role="table">
+        <thead role="rowgroup">
+            <tr role="row">
+                <th scope="col" role="columnheader">Cliente e contrato</th>
+                <th scope="col" role="columnheader">Vencimento</th>
+                <th scope="col" role="columnheader">Valor</th>
+                <th scope="col" role="columnheader">Pago</th>
+                <th scope="col" role="columnheader">Saldo</th>
+                <th scope="col" role="columnheader">Situação</th>
+            </tr>
+        </thead>
+        <tbody role="rowgroup">
+            {% for item in linhas %}
+            <tr role="row"{% if item.situacao == "Vencida" %} class="finance-row-overdue"{% endif %}>
+                <th scope="row" role="rowheader">{{ item.cliente }}<small>{{ item.cobranca.contrato.descricao }}</small></th>
+                <td role="cell"><span class="finance-mobile-label" aria-hidden="true">Vencimento</span><time datetime="{{ item.cobranca.vencimento|date:'Y-m-d' }}">{{ item.cobranca.vencimento|date:"d/m/Y" }}</time></td>
+                <td role="cell"><span class="finance-mobile-label" aria-hidden="true">Valor</span>{{ item.valor }}</td>
+                <td role="cell"><span class="finance-mobile-label" aria-hidden="true">Pago</span>{{ item.pago }}</td>
+                <td role="cell"><span class="finance-mobile-label" aria-hidden="true">Saldo</span><strong>{{ item.saldo }}</strong></td>
+                <td role="cell"><span class="finance-mobile-label" aria-hidden="true">Situação</span><span class="status-tag{% if item.situacao == 'Quitada' %} status-positive{% elif item.situacao == 'Vencida' %} status-urgent{% endif %}">{{ item.situacao }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="list-empty">Nenhuma cobrança no período selecionado.</p>
+    {% endif %}
+    <p class="record-muted finance-note">O recebido considera a data do pagamento. Os saldos consideram as cobranças com vencimento no mês selecionado. O saldo vencido faz parte do saldo em aberto.</p>
+</section>
+
+<nav class="finance-links record-actions" aria-label="Operações financeiras">
+    <a class="button secondary" href="{% url 'gestao_lista' 'contratos' %}">Contratos</a>
+    <a class="button secondary" href="{% url 'gestao_lista' 'cobrancas' %}">Cobranças</a>
+    <a class="button secondary" href="{% url 'gestao_lista' 'pagamentos' %}">Pagamentos</a>
+    <a class="button secondary" href="{% url 'gerar_mensalidades_pagina' %}">Gerar mensalidades</a>
+</nav>
+{% endblock %}

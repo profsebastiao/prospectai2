@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} | ProspectAI{% endblock %}
+{% block heading %}{{ titulo }}{% endblock %}
+{% block page_actions %}
+<div class="record-actions">
+    {% if secao == "leads" %}
+    {% if pode_criar %}
+    <a class="button secondary" href="{% url 'prospeccao_iniciar' 'oportunidades' %}">Encontrar oportunidades</a>
+    <a class="button secondary" href="{% url 'prospeccao_iniciar' 'identidade' %}">Analisar um lead</a>
+    <a class="button secondary" href="{% url 'buscar_leads_web' %}">{% include "prospect_icon.html" with icon="search" only %} Buscar na internet</a>
+    {% endif %}
+    <a class="button secondary" href="{% url 'conversao_leads' %}">Converter leads</a>
+    {% elif secao == "servicos" %}
+    <a class="button secondary" href="{% url 'gestao_lista' 'modelos-de-tarefa' %}">Modelos de tarefa</a>
+    {% endif %}
+    {% if pode_criar %}
+        {% if secao == "projetos" %}
+        <a class="button secondary" href="{% url 'gestao_novo' secao %}">Novo projeto sem serviços</a>
+        <a class="button primary" href="{% url 'projeto_contratacao_novo' %}">+ Novo projeto</a>
+        {% else %}
+        <a class="button primary" href="{% url 'gestao_novo' secao %}">+ {{ acao_novo }}</a>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+{% block content %}
+{% include "record_feedback.html" %}
+<section class="panel clients-panel" aria-label="Lista de {{ titulo|lower }}">
+    <form method="get" class="client-search" role="search" aria-label="Pesquisar {{ titulo|lower }}">
+        <div class="search-input">
+            {% include "prospect_icon.html" with icon="search" only %}
+            <label class="visually-hidden" for="record-query">Pesquisar {{ titulo|lower }}</label>
+            <input id="record-query" type="search" name="q" value="{{ busca }}" placeholder="Pesquisar {{ titulo|lower }}">
+        </div>
+        {% if lead_stages %}
+        <div class="record-filter-field">
+            <label for="lead-stage">Etapa</label>
+            <select id="lead-stage" name="filtro">
+                <option value="">Todas as etapas</option>
+                {% for value, label in lead_stages %}
+                <option value="{{ value }}"{% if filtro == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% elif filtro %}
+        <input type="hidden" name="filtro" value="{{ filtro }}">
+        {% endif %}
+        {% if retorno_filtro %}<input type="hidden" name="retorno" value="{{ retorno_filtro }}">{% endif %}
+        <button class="button secondary" type="submit">Pesquisar</button>
+        {% if busca or filtro or retorno_filtro %}<a class="button quiet" href="{% url 'gestao_lista' secao %}">Limpar</a>{% endif %}
+    </form>
+    {% if lead_stages %}
+    <nav class="record-filter-links" aria-label="Filtrar retornos de leads">
+        <a class="button secondary" href="{% querystring retorno='' page=None %}"{% if not retorno_filtro %} aria-current="true"{% endif %}>Todos os leads</a>
+        <a class="button secondary" href="{% querystring retorno='hoje' page=None %}"{% if retorno_filtro == "hoje" %} aria-current="true"{% endif %}>Retornos de hoje</a>
+        <a class="button secondary" href="{% querystring retorno='atrasados' page=None %}"{% if retorno_filtro == "atrasados" %} aria-current="true"{% endif %}>Retornos atrasados</a>
+    </nav>
+    {% endif %}
+    {% if task_filters %}
+    <nav class="record-filter-links" aria-label="Filtrar tarefas">
+        {% for value, label in task_filters %}
+        <a class="button secondary" href="{% querystring filtro=value page=None %}"{% if value == filtro %} aria-current="true"{% endif %}>{{ label }}</a>
+        {% endfor %}
+    </nav>
+    {% endif %}
+    {% if registros %}
+    <ul class="record-list">
+        {% for item in registros %}
+        <li class="record-row">
+            <div class="record-identity">
+                {% if secao == "projetos" %}
+                <a class="client-name" href="{% url 'projeto_detalhe' item.pk %}">{{ item.nome }}</a>
+                {% elif pode_editar %}
+                <a class="client-name" href="{% url 'gestao_editar' secao item.pk %}">{{ item.nome }}</a>
+                {% else %}
+                <strong>{{ item.nome }}</strong>
+                {% endif %}
+                {% if item.empresa %}<small>{{ item.empresa }}</small>{% endif %}
+                {% if secao == "tarefas" %}
+                <small>{{ item.projeto }} <span aria-hidden="true">&middot;</span> {{ item.responsavel|default:"Sem responsável" }}</small>
+                {% elif secao == "projetos" %}
+                <small>{{ item.cliente }}</small>
+                {% elif secao == "leads" %}
+                    {% if item.email %}<small>{{ item.email }}</small>{% endif %}
+                    {% if item.telefone %}<small>{{ item.telefone }}</small>{% endif %}
+                    {% if not item.email and not item.telefone %}<small>Sem contato cadastrado</small>{% endif %}
+                {% endif %}
+            </div>
+            <div class="record-meta">
+                {% if item.status %}<span class="status-tag {{ item.status_class }}">{{ item.status }}</span>{% endif %}
+                {% if secao == "leads" %}
+                    {% if item.proximo_retorno %}
+                    <span class="status-tag{% if item.retorno_atrasado %} status-urgent{% elif item.retorno_hoje %} status-today{% endif %}">
+                        {% if item.retorno_atrasado %}Retorno atrasado{% elif item.retorno_hoje %}Retorno hoje{% else %}Retorno{% endif %}
+                        <time datetime="{{ item.proximo_retorno|date:'Y-m-d' }}">{{ item.proximo_retorno|date:"d/m/Y" }}</time>
+                    </span>
+                    {% else %}<span>Sem retorno agendado</span>{% endif %}
+                    {% if item.ultimo_contato %}
+                    <span>Último contato <time datetime="{{ item.ultimo_contato|date:'Y-m-d' }}">{{ item.ultimo_contato|date:"d/m/Y" }}</time></span>
+                    {% endif %}
+                {% endif %}
+                {% if item.prioridade %}<span>Prioridade {{ item.prioridade|lower }}</span>{% endif %}
+                {% if item.prazo %}<span>Prazo <time datetime="{{ item.prazo|date:'Y-m-d' }}">{{ item.prazo|date:"d/m/Y" }}</time></span>{% endif %}
+                {% if secao == "projetos" %}
+                    {% if item.total_tarefas %}
+                    <span class="record-list-progress">
+                        <progress max="100" value="{{ item.progresso }}" aria-label="Progresso de {{ item.nome }}"></progress>
+                        <span>{{ item.tarefas_concluidas }}/{{ item.total_tarefas }} concluídas</span>
+                    </span>
+                    {% else %}<span>Sem tarefas</span>{% endif %}
+                {% endif %}
+            </div>
+            {% if pode_editar %}
+            <a class="button quiet" href="{% url 'gestao_editar' secao item.pk %}" aria-label="Editar {{ item.nome }}">Editar</a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="list-empty">{% if busca or filtro or retorno_filtro %}Nenhum resultado com os filtros atuais.{% else %}Nenhum registro cadastrado.{% endif %}</p>
+    {% endif %}
+    {% if pagina.paginator.num_pages > 1 %}
+    <nav class="client-pagination" aria-label="Páginas de {{ titulo|lower }}">
+        <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+        {% if pagina.has_previous %}<a class="button secondary" href="{% querystring page=pagina.previous_page_number %}">Anterior</a>{% endif %}
+        {% if pagina.has_next %}<a class="button secondary" href="{% querystring page=pagina.next_page_number %}">Próxima</a>{% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Administra&ccedil;&atilde;o | ProspectAI{% endblock %}
+{% block heading %}Administra&ccedil;&atilde;o{% endblock %}
+{% block extra_head %}
+
+<style>
+.portal-panel {
+    background:#fff; border:1px solid var(--border);
+    border-radius:17px; padding:24px; margin-top:24px;
+}
+.portal-header {
+    display:flex; justify-content:space-between;
+    align-items:center; gap:15px; flex-wrap:wrap;
+    margin-bottom:24px;
+}
+.portal-header h2 {margin:0 0 6px;font-size:19px}
+.portal-muted {color:var(--muted);font-size:13px}
+.portal-search {display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.portal-input, .portal-form input:not([type=checkbox]),
+.portal-form textarea, .portal-form select {
+    border:1px solid #bdc5d9; border-radius:10px;
+    padding:12px; background:#fff; color:var(--text);
+    font:inherit; max-width:100%;
+}
+.portal-search .portal-input {flex:1;min-width:180px}
+.portal-btn {
+    background:var(--purple);color:#fff;border:0;
+    border-radius:10px;padding:12px 18px;
+    cursor:pointer;text-decoration:none;display:inline-block;
+}
+.portal-table-wrap {overflow-x:auto}
+.portal-table {width:100%;min-width:620px;border-collapse:collapse}
+.portal-table th {
+    text-align:left;color:var(--muted);font-size:12px;
+    padding:13px;border-bottom:1px solid var(--border);
+}
+.portal-table td {
+    padding:15px 13px;border-bottom:1px solid var(--background);
+    font-size:13px;
+}
+.portal-table a,.portal-links a {color:var(--purple);font-weight:600}
+.portal-form {max-width:780px}
+.portal-field {margin-bottom:18px}
+.portal-field label {display:block;font-weight:600;margin-bottom:7px}
+.portal-form input:not([type=checkbox]),
+.portal-form textarea,.portal-form select {width:100%}
+.portal-form input[type=checkbox] {accent-color:var(--purple)}
+.portal-error {color:#b22c51;font-size:12px}
+.portal-actions {display:flex;gap:15px;align-items:center;margin-top:24px}
+.portal-admin-grid {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;
+}
+.portal-admin-card {
+    background:var(--background);border:1px solid var(--border);
+    border-radius:13px;padding:20px;
+}
+.portal-admin-card strong {display:block;margin-bottom:9px}
+@media(max-width:700px) {
+    .portal-admin-grid {grid-template-columns:1fr}
+}
+</style>
+
+{% endblock %}
+{% block content %}
+<section class="portal-panel interior-card">
+  <div class="portal-header">
+    <div>
+      <h2>Central administrativa</h2>
+      <p class="portal-muted">
+        Gerencie cadastros, usu&aacute;rios e permiss&otilde;es.
+      </p>
+    </div>
+    <a class="portal-btn" href="{% url 'admin:accounts_workspace_changelist' %}">Empresas e v&iacute;nculos de usu&aacute;rios</a>
+    <a class="portal-btn" href="{% url 'admin:index' %}">
+      Abrir Django Admin
+    </a>
+  </div>
+
+  <div class="portal-admin-grid portal-links">
+    <div class="portal-admin-card interior-shortcut">
+      <strong>Clientes</strong>
+      <a href="{% url 'portal_clientes' %}">Gerenciar clientes</a>
+    </div>
+    <div class="portal-admin-card interior-shortcut">
+      <strong>Leads</strong>
+      <a href="{% url 'admin:leads_lead_changelist' %}">
+        Administrar leads
+      </a>
+    </div>
+    <div class="portal-admin-card interior-shortcut">
+      <strong>Servi&ccedil;os e projetos</strong>
+      <a href="{% url 'admin:projects_projeto_changelist' %}">
+        Administrar projetos
+      </a>
+    </div>
+    <div class="portal-admin-card interior-shortcut">
+      <strong>Usu&aacute;rios e permiss&otilde;es</strong>
+      <a href="{% url 'admin:auth_user_changelist' %}">
+        Gerenciar acessos
+      </a>
+    </div>
+    <div class="portal-admin-card interior-shortcut">
+      <strong>Agenda</strong>
+      <a href="{% url 'agenda' %}">Abrir agenda</a>
+    </div>
+    <div class="portal-admin-card interior-shortcut">
+      <strong>Configura&ccedil;&otilde;es</strong>
+      <a href="{% url 'admin:index' %}">Painel administrativo</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

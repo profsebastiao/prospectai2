@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block heading %}Espaços de trabalho{% endblock %}
+{% block content %}
+    {% if workspaces %}
+    <form method="post" class="panel record-form">
+        {% csrf_token %}
+        <div class="record-field">
+        <label for="workspace">Empresa</label>
+        <select name="workspace" id="workspace" required>
+            {% for workspace in workspaces %}
+            <option value="{{ workspace.pk }}"{% if workspace == request.workspace %} selected{% endif %}>{{ workspace.nome }}</option>
+            {% endfor %}
+        </select>
+        </div>
+        <div class="record-actions record-form-actions">
+        <button class="button primary" type="submit">Abrir espaço</button>
+        </div>
+    </form>
+    {% else %}
+    <p class="panel">Sua conta ainda não tem acesso a nenhum espaço de trabalho.</p>
+    {% endif %}
+{% endblock %}

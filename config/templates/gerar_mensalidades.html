@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Gerar mensalidades | ProspectAI{% endblock %}
+{% block heading %}Gerar mensalidades{% endblock %}
+
+{% block extra_head %}
+<style>
+.gm-wrap {
+  max-width:860px;margin:22px 0;
+}
+.gm-card {
+  background:#fff;border:1px solid var(--border);
+  border-radius:18px;padding:24px;margin-bottom:18px;
+}
+.gm-card h2 {margin:0 0 10px;font-size:20px}
+.gm-muted {color:var(--muted);font-size:13px}
+.gm-grid {
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:16px;margin-top:20px;
+}
+.gm-field {display:flex;flex-direction:column;gap:8px}
+.gm-field label {font-size:13px;font-weight:600}
+.gm-field input,.gm-field select {
+  border:1px solid #bdc5d9;border-radius:10px;
+  padding:12px;background:white;
+  color:var(--text);width:100%;
+}
+.gm-check {margin:20px 0;font-size:13px}
+.gm-check input {accent-color:var(--purple)}
+.gm-buttons {display:flex;gap:10px;flex-wrap:wrap}
+.gm-buttons button,.gm-buttons a {
+  padding:12px 18px;border-radius:10px;
+  text-decoration:none;font:inherit;font-size:13px;
+}
+.gm-preview {
+  border:1px solid var(--purple);
+  background:white;color:var(--purple);cursor:pointer;
+}
+.gm-apply {
+  border:1px solid var(--purple);background:var(--purple);
+  color:white;cursor:pointer;
+}
+.gm-buttons a {color:var(--purple)}
+.gm-result {
+  background:var(--background);border-radius:12px;
+  padding:16px;overflow:auto;
+  white-space:pre-wrap;overflow-wrap:anywhere;
+  font-size:12px;line-height:1.8;
+}
+.gm-error {color:#ad354a;font-size:13px}
+@media(max-width:650px) {
+  .gm-grid {grid-template-columns:1fr}
+  .gm-card {padding:16px}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gm-wrap">
+  <section class="gm-card interior-card">
+    <h2>Gera&ccedil;&atilde;o de mensalidades</h2>
+    <p class="gm-muted">
+      Simule as cobran&ccedil;as antes de gravar
+      os valores no banco de dados.
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="gm-grid">
+        <div class="gm-field">
+          <label for="mes">M&ecirc;s inicial</label>
+          <input type="month" id="mes" name="mes"
+                 value="{{ mes }}" required>
+        </div>
+
+        <div class="gm-field">
+          <label for="meses">Quantidade de meses</label>
+          <select id="meses" name="meses">
+            {% for numero in "123456789ABC" %}
+            {% with n=forloop.counter %}
+            <option value="{{ n }}"
+              {% if meses == n|stringformat:"s" %}selected{% endif %}>
+              {{ n }} m&ecirc;s(es)
+            </option>
+            {% endwith %}
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="gm-field" style="margin-top:18px">
+        <label for="contrato">Contrato</label>
+        <select id="contrato" name="contrato">
+          <option value="">Todos os contratos mensais ativos</option>
+          {% for contrato in contratos %}
+          <option value="{{ contrato.pk }}"
+            {% if contrato_id == contrato.pk|stringformat:"s" %}selected{% endif %}>
+            #{{ contrato.pk }} - {{ contrato }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="gm-check">
+        <label>
+          <input type="checkbox" name="confirmar" value="sim"
+            {% if confirmacao %}checked{% endif %}>
+          Confirmo que conferi o per&iacute;odo e desejo
+          gerar as cobran&ccedil;as selecionadas.
+        </label>
+      </div>
+
+      <div class="gm-buttons">
+        <button class="gm-preview" name="acao"
+                value="simular" type="submit">
+          Visualizar pr&eacute;via
+        </button>
+
+        {% if pode_gerar %}
+        <button class="gm-apply" name="acao"
+                value="gerar" type="submit">
+          Confirmar e gerar mensalidades
+        </button>
+        {% endif %}
+
+        <a href="{% url 'financeiro' %}">
+          Voltar ao Financeiro
+        </a>
+      </div>
+    </form>
+  </section>
+
+  {% if erro %}
+  <section class="gm-card interior-card">
+    <p class="gm-error">{{ erro }}</p>
+  </section>
+  {% endif %}
+
+  {% if resultado %}
+  <section class="gm-card interior-card">
+    <h2>
+      {% if executado %}
+      Resultado da gera&ccedil;&atilde;o
+      {% else %}
+      Pr&eacute;via das cobran&ccedil;as
+      {% endif %}
+    </h2>
+    <pre class="gm-result">{{ resultado }}</pre>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

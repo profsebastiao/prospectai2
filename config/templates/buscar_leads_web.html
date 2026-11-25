@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Buscar leads na internet | ProspectAI{% endblock %}
+{% block heading %}Buscar na internet{% endblock %}
+{% block breadcrumb %}
+<nav class="record-breadcrumb" aria-label="Localização"><a href="{% url 'gestao_lista' 'leads' %}">Leads</a></nav>
+{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'accounts/busca-leads.css' %}?v=1">{% endblock %}
+{% block content %}
+{% if not groq_conectado %}
+<p class="panel">Conecte a Groq para usar a prospecção com IA.
+    {% if pode_gerenciar_groq %}<a href="{% url 'integracao_groq' %}">Configurar Groq</a>{% endif %}
+</p>
+{% endif %}
+<form method="post" class="panel record-form web-lead-search">
+    {% csrf_token %}
+    {% include "record_fields.html" with form=form only %}
+    <div class="record-actions record-form-actions">
+        <button class="button primary" type="submit">Buscar fontes públicas</button>
+        <a class="button secondary" href="{% url 'gestao_novo' 'leads' %}">Novo lead manualmente</a>
+    </div>
+</form>
+
+{% if erro %}<p class="record-form-error" role="alert">{{ erro }}</p>{% endif %}
+
+{% if consultou %}
+<section aria-labelledby="web-results-heading">
+    <h2 id="web-results-heading">Resultados da busca</h2>
+    <p class="record-muted">Consultado em {{ consultado|date:"d/m/Y H:i" }}. Confira a fonte antes de escolher um candidato.</p>
+    {% if not resultados %}<p class="panel">Nenhum candidato encontrado nas fontes consultadas.</p>{% endif %}
+    {% for candidato in resultados %}
+    <article class="panel web-lead-result">
+        <header>
+            <h3>{{ candidato.titulo }}</h3>
+            <a class="client-name" href="{{ candidato.fonte }}" target="_blank" rel="noopener noreferrer">{{ candidato.fonte }}</a>
+        </header>
+        <dl class="record-facts web-lead-facts">
+            {% if candidato.nome %}<div><dt>Nome sugerido pelo título</dt><dd>{{ candidato.nome }}</dd></div>{% endif %}
+            {% if candidato.segmento %}<div><dt>Segmento</dt><dd>{{ candidato.segmento }}</dd></div>{% endif %}
+            {% if candidato.cidade %}<div><dt>Cidade mencionada</dt><dd>{{ candidato.cidade }}</dd></div>{% endif %}
+            {% if candidato.email %}<div><dt>E-mail divulgado</dt><dd>{{ candidato.email }}</dd></div>{% endif %}
+            {% if candidato.telefone %}<div><dt>Telefone divulgado</dt><dd>{{ candidato.telefone }}</dd></div>{% endif %}
+            {% if candidato.whatsapp %}<div><dt>WhatsApp divulgado</dt><dd>{{ candidato.whatsapp }}</dd></div>{% endif %}
+        </dl>
+        <p class="record-muted">Os campos acima e o trecho abaixo vêm da fonte indicada no título deste resultado.</p>
+        {% if candidato.descricao %}<p class="web-lead-excerpt">{{ candidato.descricao }}</p>{% endif %}
+
+        {% if candidato.perfis %}
+        <h4>Perfis encontrados</h4>
+        {% if not candidato.principal %}<p class="record-muted">Perfis mencionados na fonte. Confirme a relação com o negócio durante a revisão.</p>{% endif %}
+        <ul class="web-lead-evidence">
+            {% for perfil in candidato.perfis %}
+            <li>
+                <strong>{{ perfil.nome }}{% if perfil.usuario %} · @{{ perfil.usuario }}{% endif %}</strong>
+                <a href="{{ perfil.url }}" target="_blank" rel="noopener noreferrer">{{ perfil.url }}</a>
+                <small>{{ perfil.evidencia }} <a href="{{ perfil.fonte }}" target="_blank" rel="noopener noreferrer">Fonte</a></small>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <h4>Classificação dos links</h4>
+        {% if not candidato.site_encontrado %}<p class="record-muted"><strong>Site do negócio:</strong> Não encontrado nas fontes consultadas.</p>{% endif %}
+        {% if not candidato.landing_encontrada %}<p class="record-muted"><strong>Landing page:</strong> Não encontrada nas fontes consultadas.</p>{% endif %}
+        <ul class="web-lead-evidence">
+            {% for link in candidato.links %}
+            <li>
+                <strong>{{ link.tipo }}</strong>
+                <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.url }}</a>
+                <small>{{ link.evidencia }} <a href="{{ link.fonte }}" target="_blank" rel="noopener noreferrer">Fonte</a></small>
+            </li>
+            {% endfor %}
+        </ul>
+        <form method="post" class="record-form-actions">
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="revisar">
+            <input type="hidden" name="resultado" value="{{ candidato.selecao }}">
+            <button class="button primary" type="submit">Revisar e cadastrar lead</button>
+        </form>
+    </article>
+    {% endfor %}
+</section>
+{% endif %}
+{% if manual %}
+<form method="post" class="record-actions web-lead-manual">
+    {% csrf_token %}
+    <input type="hidden" name="acao" value="revisar">
+    <input type="hidden" name="resultado" value="{{ manual }}">
+    <button class="button secondary" type="submit">Revisar e cadastrar manualmente</button>
+</form>
+{% endif %}
+{% endblock %}

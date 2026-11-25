@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} | ProspectAI{% endblock %}
+{% block breadcrumb %}
+<nav class="record-breadcrumb" aria-label="Localização">
+    {% if projeto_contexto %}
+    <a href="{% url 'gestao_lista' 'projetos' %}">Projetos</a>
+    <span aria-hidden="true">›</span>
+    <a href="{% url 'projeto_detalhe' projeto_contexto.pk %}">{{ projeto_contexto.nome }}</a>
+    {% else %}
+    <a href="{% url 'gestao_lista' secao %}">{{ secao_titulo }}</a>
+    {% endif %}
+    {% if projeto_detalhe_id %}<span aria-hidden="true">›</span><a href="{% url 'projeto_detalhe' projeto_detalhe_id %}">{{ titulo }}</a>{% endif %}
+</nav>
+{% endblock %}
+{% block heading %}{{ titulo }}{% endblock %}
+{% block page_actions %}
+<div class="record-actions">
+    {% if status %}<span class="status-tag {{ status_class }}">{{ status }}</span>{% endif %}
+    {% if secao == "leads" and registro_id %}<a class="button secondary" href="{% url 'prospeccao_iniciar' 'identidade' %}?lead={{ registro_id }}">Analisar este lead</a>{% endif %}
+</div>
+{% endblock %}
+{% block content %}
+{% include "record_feedback.html" %}
+{% if form_contato %}
+<section class="panel record-form lead-contact-panel" aria-labelledby="lead-contact-heading">
+    <h2 id="lead-contact-heading">Registrar contato</h2>
+    <p class="record-muted">Último contato: {% if ultimo_contato %}<time datetime="{{ ultimo_contato|date:'Y-m-d' }}">{{ ultimo_contato|date:"d/m/Y" }}</time>{% else %}Ainda não registrado{% endif %}</p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="registrar_contato">
+        {% include "record_fields.html" with form=form_contato only %}
+        <div class="record-form-actions"><button type="submit" class="button primary">Registrar contato de hoje</button></div>
+    </form>
+</section>
+{% endif %}
+<form method="post" class="panel record-form"{% if form_action %} action="{{ form_action }}"{% endif %}>
+    {% csrf_token %}
+    {% include "record_fields.html" with form=formulario only %}
+    <div class="record-actions record-form-actions">
+        <button class="button primary" type="submit">Salvar</button>
+        {% if projeto_contexto %}
+        <a class="button secondary" href="{% url 'projeto_detalhe' projeto_contexto.pk %}">Cancelar</a>
+        {% elif projeto_detalhe_id %}
+        <a class="button secondary" href="{% url 'projeto_detalhe' projeto_detalhe_id %}">Cancelar</a>
+        {% else %}
+        <a class="button secondary" href="{% url 'gestao_lista' secao %}">Cancelar</a>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}

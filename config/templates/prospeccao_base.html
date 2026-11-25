@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% load static %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'accounts/prospeccao.css' %}?v=groq-1">{% endblock %}
+{% block breadcrumb %}
+<nav class="record-breadcrumb" aria-label="Localização"><a href="{% url 'gestao_lista' 'leads' %}">Leads</a></nav>
+{% endblock %}
+{% block page_actions %}<a class="button secondary" href="{% url 'prospeccao_historico' %}">Histórico</a>{% endblock %}

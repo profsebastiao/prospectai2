@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ projeto.nome }} | ProspectAI{% endblock %}
+{% block breadcrumb %}
+<nav class="record-breadcrumb" aria-label="Localização"><a href="{% url 'gestao_lista' 'projetos' %}">Projetos</a></nav>
+{% endblock %}
+{% block heading %}{{ projeto.nome }}{% endblock %}
+{% block page_actions %}
+<div class="record-actions">
+    <span class="status-tag {% if projeto.status == "concluido" %}status-positive{% elif projeto.status == "andamento" %}status-progress{% elif projeto.status == "pausado" %}status-today{% endif %}">{{ projeto.get_status_display }}</span>
+    {% if pode_editar_projeto %}
+    <a class="button primary" href="{% url 'gestao_editar' 'projetos' projeto.pk %}">Editar projeto</a>
+    {% endif %}
+</div>
+{% endblock %}
+{% block content %}
+{% include "record_feedback.html" %}
+<div class="record-detail-grid">
+    <section class="panel record-detail record-detail-tasks">
+        <div class="panel-header">
+            <h2>Tarefas do projeto</h2>
+            <a class="button primary" href="{% url 'gestao_novo' 'tarefas' %}?projeto={{ projeto.pk }}">
+                {% include "prospect_icon.html" with icon="plus" only %} Nova tarefa
+            </a>
+        </div>
+        {% include "projeto_tarefa_grupo.html" with tarefas=tarefas_abertas grupo="Em aberto" vazio="Nenhuma tarefa em aberto." %}
+        {% include "projeto_tarefa_grupo.html" with tarefas=tarefas_concluidas grupo="Concluídas" vazio="Nenhuma tarefa concluída." %}
+    </section>
+    <section class="panel record-detail">
+        <h2>Informações do projeto</h2>
+        <dl class="record-facts">
+            <div><dt>Cliente</dt><dd>{% if pode_ver_cliente %}<a class="client-name" href="{% url 'cliente_detalhe' projeto.cliente.pk %}">{{ projeto.cliente.nome }}</a>{% else %}Cliente vinculado{% endif %}</dd></div>
+            <div><dt>Início</dt><dd>{{ projeto.data_inicio|date:"d/m/Y"|default:"—" }}</dd></div>
+            <div><dt>Prazo de entrega</dt><dd>{{ projeto.prazo_entrega|date:"d/m/Y"|default:"—" }}</dd></div>
+        </dl>
+        {% if projeto.descricao %}<p>{{ projeto.descricao|linebreaksbr }}</p>{% endif %}
+    </section>
+    <section class="panel record-detail">
+        <h2>Progresso das tarefas</h2>
+        <p class="record-progress-label"><strong>{{ progresso }}%</strong> <span>{{ concluidas }} de {{ total }} concluídas</span></p>
+        <progress class="record-progress" max="100" value="{{ progresso }}" aria-label="Progresso das tarefas">{{ progresso }}%</progress>
+        <h3>Serviços contratados</h3>
+        {% if servicos %}
+        <ul class="record-services">
+            {% for item in servicos %}<li>{{ item.servico.nome }}</li>{% endfor %}
+        </ul>
+        {% else %}<p class="record-muted">Nenhum serviço contratado.</p>{% endif %}
+    </section>
+</div>
+{% endblock %}

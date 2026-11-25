@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Configurações | ProspectAI{% endblock %}
+{% block heading %}Configura&ccedil;&otilde;es{% endblock %}
+
+{% block content %}
+{% if messages %}<div class="form-messages" role="status">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
+{% if request.workspace %}
+<section class="panel interior-card">
+    <h2>Integrações</h2>
+    <p class="record-muted">Consulte a conexão Groq de {{ request.workspace.nome }}.</p>
+    <a class="button secondary" href="{% url 'integracao_groq' %}">Groq</a>
+</section>
+{% endif %}
+<div class="settings-grid">
+<section class="panel interior-card">
+    <h2>Minha conta</h2>
+    <p class="record-muted">Usu&aacute;rio: {{ usuario.username }}</p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="perfil">
+        {% include "record_fields.html" with form=perfil only %}
+        <div class="record-form-actions"><button class="button primary" type="submit">Salvar dados</button></div>
+    </form>
+    <div class="profile-photo-settings">
+        <h3>Foto de perfil</h3>
+        <div class="profile-photo-preview" aria-hidden="true">
+            {% if perfil_visual.foto %}<img src="{% url 'foto_perfil_usuario' %}" alt="">
+            {% else %}{% with inicial_nome=usuario.first_name|first inicial_sobrenome=usuario.last_name|first %}{% if inicial_nome %}{{ inicial_nome|upper }}{% if inicial_sobrenome %}{{ inicial_sobrenome|upper }}{% endif %}{% else %}{{ usuario.username|first|upper }}{% endif %}{% endwith %}{% endif %}
+        </div>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="foto_perfil">
+            {% include "record_fields.html" with form=foto_perfil only %}
+            <div class="record-form-actions">
+                <button class="button primary" type="submit">Salvar foto</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section class="panel interior-card">
+    <h2>Seguran&ccedil;a</h2>
+    <p class="record-muted">Altere a senha da sua conta.</p>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="senha">
+        {% include "record_fields.html" with form=senha only %}
+        <div class="record-form-actions"><button class="button primary" type="submit">Alterar senha</button></div>
+    </form>
+</section>
+</div>
+{% endblock %}

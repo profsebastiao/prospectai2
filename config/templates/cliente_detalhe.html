@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ cliente.nome }} | ProspectAI{% endblock %}
+{% block heading %}{{ cliente.nome }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'accounts/cliente-detalhe.css' %}?v=1">{% endblock %}
+{% block breadcrumb %}
+<nav class="record-breadcrumb" aria-label="Localização"><a href="{% url 'portal_clientes' %}">Clientes</a></nav>
+{% endblock %}
+{% block page_actions %}
+<div class="record-actions">
+    {% if cliente.ativo %}<span class="status-tag status-positive">Ativo</span>{% else %}<span class="status-tag">Inativo</span>{% endif %}
+    <a class="button primary" href="{% url 'portal_cliente_editar' cliente.pk %}">Editar cliente</a>
+</div>
+{% endblock %}
+{% block content %}
+<section class="panel client-contact" aria-label="Contato do cliente">
+    <dl class="record-facts">
+        {% if cliente.empresa %}<div><dt>Empresa</dt><dd>{{ cliente.empresa }}</dd></div>{% endif %}
+        {% if cliente.email %}<div><dt>E-mail</dt><dd><a href="mailto:{{ cliente.email }}">{{ cliente.email }}</a></dd></div>{% endif %}
+        {% if cliente.telefone %}<div><dt>Telefone</dt><dd><a href="tel:{{ cliente.telefone }}">{{ cliente.telefone }}</a></dd></div>{% endif %}
+        {% if cliente.whatsapp %}<div><dt>WhatsApp</dt><dd>{{ cliente.whatsapp }}</dd></div>{% endif %}
+    </dl>
+    {% if not cliente.email and not cliente.telefone and not cliente.whatsapp %}
+    <p class="record-muted">Nenhum contato cadastrado.</p>
+    {% endif %}
+</section>
+
+<div class="client-overview">
+    <section class="panel record-detail" aria-labelledby="urgent-client-tasks">
+        <h2 id="urgent-client-tasks">Tarefas que precisam de atenção</h2>
+        {% if tarefas_urgentes %}
+        <ul class="record-list">
+            {% for tarefa in tarefas_urgentes %}
+            <li class="record-row">
+                <div class="record-identity">
+                    <a class="client-name" href="{% url 'gestao_editar' 'tarefas' tarefa.pk %}">{{ tarefa.titulo }}</a>
+                    <small>{{ tarefa.projeto.nome }} · {{ tarefa.get_status_display }}</small>
+                </div>
+                <div class="record-meta">
+                    {% if tarefa.prazo < hoje %}<span class="status-tag status-urgent">Atrasada</span>
+                    {% else %}<span class="status-tag status-today">Vence hoje</span>{% endif %}
+                    <time datetime="{{ tarefa.prazo|date:'Y-m-d' }}">{{ tarefa.prazo|date:"d/m/Y" }}</time>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}<p class="record-muted">Nenhuma tarefa atrasada ou com vencimento hoje.</p>{% endif %}
+    </section>
+
+    <section class="panel record-detail" aria-labelledby="open-client-projects">
+        <h2 id="open-client-projects">Projetos em aberto</h2>
+        {% if projetos_abertos %}
+        <ul class="record-list">
+            {% for projeto in projetos_abertos %}
+            <li class="record-row">
+                <div class="record-identity">
+                    <a class="client-name" href="{% url 'projeto_detalhe' projeto.pk %}">{{ projeto.nome }}</a>
+                    {% if projeto.prazo_entrega %}<small>Entrega em {{ projeto.prazo_entrega|date:"d/m/Y" }}</small>{% endif %}
+                </div>
+                <div class="record-meta"><span class="status-tag{% if projeto.status == 'andamento' %} status-progress{% elif projeto.status == 'pausado' %} status-today{% endif %}">{{ projeto.get_status_display }}</span></div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}<p class="record-muted">Nenhum projeto em aberto.</p>{% endif %}
+    </section>
+
+    <section class="panel record-detail" aria-labelledby="client-notes">
+        <h2 id="client-notes">Dados cadastrais</h2>
+        <dl class="record-facts"><div><dt>Cadastrado em</dt><dd>{{ cliente.criado_em|date:"d/m/Y" }}</dd></div></dl>
+        <h3>Observações</h3>
+        <p>{{ cliente.observacoes|default:"Nenhuma observação cadastrada."|linebreaksbr }}</p>
+    </section>
+
+    <section class="panel record-detail" aria-labelledby="finished-client-projects">
+        <h2 id="finished-client-projects">Projetos concluídos</h2>
+        {% if projetos_concluidos %}
+        <ul class="record-list">
+            {% for projeto in projetos_concluidos %}
+            <li class="record-row"><a class="client-name" href="{% url 'projeto_detalhe' projeto.pk %}">{{ projeto.nome }}</a></li>
+            {% endfor %}
+        </ul>
+        {% else %}<p class="record-muted">Nenhum projeto concluído.</p>{% endif %}
+    </section>
+</div>
+{% endblock %}

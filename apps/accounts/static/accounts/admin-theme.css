@@ -1,0 +1,20 @@
+#header { background: #404393; color: #fff; }
+#site-name a, #header a:link, #header a:visited { color: #fff; }
+div.breadcrumbs { background: #303376; color: #fff; }
+div.breadcrumbs a:link, div.breadcrumbs a:visited { color: #d5f4e5; }
+.module h2, .module caption, .inline-group h2 { background: #494caa; color: #fff; }
+.module caption a.section { color: #fff; }
+.button.default, input[type="submit"].default { background: #404393; }
+.button.default:hover, input[type="submit"].default:hover { background: #303376; }
+#header :focus-visible, div.breadcrumbs :focus-visible { outline: 2px solid #a0e4c7; outline-offset: 3px; }
+
+
+/* Hide scrollbar tracks without disabling scrolling. */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+
+
+/* Show the page scrollbar on the right. Keep nested scrollbar tracks hidden. */
+html { scrollbar-width: thin; scrollbar-color: #777ab2 transparent; }
+html::-webkit-scrollbar { display: block; width: 8px; height: 0; }
+html::-webkit-scrollbar-thumb { background: #777ab2; border-radius: 8px; }

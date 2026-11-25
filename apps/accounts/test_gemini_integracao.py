@@ -1,0 +1,104 @@
+import base64
+import io
+import json
+from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from apps.accounts.gemini_credentials import criptografar, descriptografar
+from apps.accounts.models import EventoIntegracaoGemini, IntegracaoGemini, Workspace, WorkspaceMembership
+
+
+AES_TESTE = base64.urlsafe_b64encode(b"k" * 32).decode()
+CHAVE_A = "fixture-groq-empresa-a"
+CHAVE_INVALIDA = "fixture-chave-recusada"
+
+
+@override_settings(GEMINI_ENCRYPTION_KEYS=AES_TESTE, GROQ_COMPANY_DAILY_LIMIT=12, GROQ_MODEL="openai/gpt-oss-20b")
+class IntegracaoGroqTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin = get_user_model().objects.create_user("gestor")
+        cls.member = get_user_model().objects.create_user("membro")
+        cls.a = Workspace.objects.create(nome="Marcenaria", slug="marcenaria-groq")
+        cls.b = Workspace.objects.create(nome="Agencia", slug="agencia-groq")
+        WorkspaceMembership.objects.create(usuario=cls.admin, workspace=cls.a, pode_gerenciar_gemini=True)
+        WorkspaceMembership.objects.create(usuario=cls.admin, workspace=cls.b, pode_gerenciar_gemini=True)
+        WorkspaceMembership.objects.create(usuario=cls.member, workspace=cls.a)
+
+    def setUp(self):
+        self.client.force_login(self.admin)
+        self.selecionar(self.a)
+        self.url = reverse("integracao_groq")
+
+    def selecionar(self, workspace):
+        sessao = self.client.session
+        sessao["workspace_id"] = workspace.pk
+        sessao.save()
+
+    def pedido(self, acao, **dados):
+        return self.client.post(self.url, {"acao": acao, **dados}, secure=True)
+
+    @staticmethod
+    def simular(opener, chave, *, rejeitar=False):
+        def abrir(req, timeout):
+            assert req.get_header("Authorization") == f"Bearer {chave}"
+            if rejeitar:
+                raise HTTPError(req.full_url, 401, "unauthorized", {}, io.BytesIO(b'{"error":{"code":"invalid_api_key"}}'))
+            response = MagicMock()
+            response.__enter__.return_value.read.return_value = json.dumps({"choices": [{
+                "finish_reason": "stop", "message": {"content": "{\"ok\":true}"},
+            }]}).encode()
+            return response
+        opener.return_value.open.side_effect = abrir
+
+    @patch("apps.leads.groq.build_opener")
+    def test_salva_credencial_encriptada_por_empresa_e_status_sem_segredo(self, opener):
+        self.simular(opener, CHAVE_A)
+        response = self.pedido("salvar", chave=CHAVE_A)
+        self.assertEqual(response.status_code, 302)
+        config = IntegracaoGemini.objects.get(workspace=self.a)
+        self.assertEqual(config.provedor, "groq")
+        self.assertNotIn(CHAVE_A.encode(), bytes(config.credencial))
+        self.assertEqual(descriptografar(config), CHAVE_A)
+        tela = self.client.get(self.url)
+        self.assertContains(tela, "Credencial Groq salva")
+        self.assertNotContains(tela, CHAVE_A)
+        self.assertTrue(EventoIntegracaoGemini.objects.filter(workspace=self.a, evento="groq_conectada").exists())
+
+    @patch("apps.leads.groq.build_opener")
+    def test_chave_recusada_preserva_configuracao_anterior(self, opener):
+        self.simular(opener, CHAVE_A)
+        self.pedido("salvar", chave=CHAVE_A)
+        anterior = IntegracaoGemini.objects.get(workspace=self.a)
+        self.simular(opener, CHAVE_INVALIDA, rejeitar=True)
+        response = self.pedido("salvar", chave=CHAVE_INVALIDA)
+        self.assertContains(response, "A chave Groq foi recusada")
+        atual = IntegracaoGemini.objects.get(workspace=self.a)
+        self.assertEqual(bytes(atual.credencial), bytes(anterior.credencial))
+
+    @patch("apps.leads.groq.build_opener")
+    def test_membro_comum_nao_configura_e_outro_workspace_e_isolado(self, opener):
+        self.client.force_login(self.member)
+        self.selecionar(self.a)
+        self.assertEqual(self.pedido("salvar", chave=CHAVE_A).status_code, 403)
+        self.assertFalse(IntegracaoGemini.objects.exists())
+        self.client.force_login(self.admin)
+        self.selecionar(self.b)
+        self.simular(opener, "fixture-groq-empresa-b")
+        self.assertEqual(self.pedido("salvar", chave="fixture-groq-empresa-b").status_code, 302)
+        self.assertEqual(IntegracaoGemini.objects.count(), 1)
+        self.assertFalse(IntegracaoGemini.objects.filter(workspace=self.a).exists())
+
+    def test_criptografia_autenticada_vincula_workspace_e_rotacao(self):
+        cifra = criptografar(self.a.pk, CHAVE_A)
+        com_contexto_errado = IntegracaoGemini(workspace=self.b, credencial=cifra, limite_diario=1)
+        with self.assertRaises(Exception):
+            descriptografar(com_contexto_errado)
+        correto = IntegracaoGemini(workspace=self.a, credencial=cifra, limite_diario=1)
+        nova = base64.urlsafe_b64encode(b"z" * 32).decode()
+        with override_settings(GEMINI_ENCRYPTION_KEYS=f"{nova},{AES_TESTE}"):
+            self.assertEqual(descriptografar(correto), CHAVE_A)
