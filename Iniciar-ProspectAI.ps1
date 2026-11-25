@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$SkipDesktopShortcut
 )
 
@@ -69,6 +69,7 @@ try {
         } else {
             Write-Host "O ProspectAI já está aberto. A integração Groq pode ser carregada ao reiniciar o servidor com a chave mestre."
         }
+        Write-Host "Para carregar atualizações do código, execute Parar-ProspectAI.cmd e depois este lançador de novo." -ForegroundColor Yellow
         Open-ProspectAI
         exit 0
     }
