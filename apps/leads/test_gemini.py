@@ -120,3 +120,54 @@ class GroqTransportTests(TestCase):
             with self.assertRaisesMessage(IAIndisponivel, "temporariamente"):
                 gerar(self.a.pk, "teste", {})
         self.assertNotIn("nao registrar segredo", " ".join(logs.output))
+
+
+@override_settings(
+    GROQ_MODEL="openai/gpt-oss-20b", GROQ_COMPANY_DAILY_LIMIT=5,
+    GEMINI_ENCRYPTION_KEYS=base64.urlsafe_b64encode(b"x" * 32).decode(),
+)
+class GroqDiagnosticoTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.ws = Workspace.objects.create(nome="Empresa D", slug="empresa-d-groq")
+        IntegracaoGemini.objects.create(
+            workspace=cls.ws, provedor="groq", credencial=criptografar(cls.ws.pk, CHAVE_A), limite_diario=5,
+        )
+
+    def erro(self, opener, codigo, corpo):
+        opener.return_value.open.side_effect = HTTPError("https://api.groq.com", codigo, "x", {}, io.BytesIO(corpo))
+        with self.assertRaises(IAIndisponivel) as ctx:
+            gerar(self.ws.pk, "teste", {})
+        return ctx.exception
+
+    @patch("apps.leads.groq.build_opener")
+    def test_envia_user_agent_proprio(self, opener):
+        GroqTransportTests.response(opener, {"choices": [{"finish_reason": "stop", "message": {"content": "{}"}}]})
+        gerar(self.ws.pk, "teste", {})
+        req = opener.return_value.open.call_args.args[0]
+        agente = dict((k.lower(), v) for k, v in req.header_items())["user-agent"]
+        self.assertTrue(agente.startswith("ProspectAI/"))
+        self.assertNotIn(b'"store"', req.data)
+
+    @patch("apps.leads.groq.build_opener")
+    def test_pagina_do_cloudflare_vira_bloqueio_de_rede(self, opener):
+        exc = self.erro(opener, 403, b"error code: 1010")
+        self.assertEqual(exc.codigo, "bloqueio_rede")
+        self.assertIn("firewall", str(exc))
+        self.assertIn("1010", str(exc))
+
+    @patch("apps.leads.groq.build_opener")
+    def test_403_generico_mostra_motivo_da_groq_sem_vazar_chave(self, opener):
+        corpo = json.dumps({"error": {"message": f"Forbidden for {CHAVE_A} gsk_abc123", "code": "forbidden"}}).encode()
+        exc = self.erro(opener, 403, corpo)
+        self.assertEqual(exc.codigo, "acesso_negado")
+        self.assertIn("Forbidden", str(exc))
+        self.assertNotIn(CHAVE_A, str(exc))
+        self.assertNotIn("gsk_abc123", str(exc))
+
+    @patch("apps.leads.groq.build_opener")
+    def test_400_de_parametro_nao_e_confundido_com_modelo(self, opener):
+        corpo = b'{"error":{"message":"property \'foo\' is unsupported","type":"invalid_request_error"}}'
+        exc = self.erro(opener, 400, corpo)
+        self.assertEqual(exc.codigo, "requisicao")
+        self.assertIn("unsupported", str(exc))

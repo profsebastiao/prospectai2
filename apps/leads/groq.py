@@ -24,6 +24,12 @@ TEMPORARIA = "A Groq está temporariamente indisponível. Seus dados foram manti
 WEB_INDISPONIVEL = "A busca na web da Groq está indisponível para esta conexão. Você pode adicionar evidências manualmente."
 MODELO_INDISPONIVEL = "O modelo esta bloqueado ou indisponivel para esta chave. Libere-o nas permissoes do projeto/organizacao Groq ou configure um modelo permitido."
 MODELOS_COM_BUSCA = {"openai/gpt-oss-20b", "openai/gpt-oss-120b"}
+BLOQUEIO_REDE = (
+    "A Groq recusou a conexão antes de verificar a chave (bloqueio do firewall da Groq). "
+    "Tente de novo em alguns minutos; se continuar, verifique VPN, proxy ou antivírus que filtre a internet."
+)
+# Identificacao propria: o firewall da Groq costuma recusar o padrao "Python-urllib".
+USER_AGENT = "ProspectAI/1.0 (+https://sebastiao.dev.br)"
 
 
 class IAIndisponivel(Exception):
@@ -139,7 +145,6 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
             ],
             "max_completion_tokens": max_tokens,
             "temperature": 0.2,
-            "store": False,
         }
         if schema:
             payload["response_format"] = {"type": "json_object"}
@@ -147,7 +152,12 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
     requisicao = Request(
         endpoint,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {chave}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": USER_AGENT,
+        },
         method="POST",
     )
     reservar_chamada(workspace_id, limite)
@@ -169,8 +179,10 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
             raise ValueError("invalid")
         return resultado
     except HTTPError as exc:
-        codigo, mensagem = _erro_http(exc, web)
-        logger.warning("Groq: empresa=%s tipo=%s http=%s", workspace_id, codigo, exc.code)
+        codigo, mensagem, detalhe = _erro_http(exc, web, chave)
+        logger.warning("Groq: empresa=%s tipo=%s http=%s detalhe=%s", workspace_id, codigo, exc.code, detalhe or "-")
+        if detalhe:
+            mensagem = f"{mensagem} Resposta da Groq (HTTP {exc.code}): {detalhe}"
         raise IAIndisponivel(mensagem, codigo) from None
     except TimeoutError:
         logger.warning("Groq: empresa=%s tipo=timeout", workspace_id)
@@ -192,27 +204,58 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
         raise IAIndisponivel("A Groq devolveu uma resposta inválida, incompleta ou bloqueada.", "resposta") from None
 
 
-def _erro_http(exc, web):
+def _detalhe_seguro(texto, chave):
+    """Trecho curto da resposta da Groq, sem a chave e sem caracteres de controle."""
+    texto = str(texto or "")
+    if chave:
+        texto = texto.replace(chave, "[chave]")
+    texto = re.sub(r"gsk_[A-Za-z0-9]+", "[chave]", texto)
+    texto = re.sub(r"[^\x20-\x7e\u00a0-\u00ff]+", " ", texto)
+    return " ".join(texto.split())[:220]
+
+
+def _erro_http(exc, web, chave=""):
     try:
-        erro = json.loads(exc.read(16_000)).get("error", {})
-        codigo_erro = str(erro.get("code", "")).lower()
-        mensagem = str(erro.get("message", "")).lower()
-        tipo = str(erro.get("type", "")).lower()
-    except (ValueError, TypeError, AttributeError, OSError):
-        codigo_erro, mensagem, tipo = "", "", ""
+        bruto = exc.read(16_000)
+    except (OSError, AttributeError, TypeError, ValueError):
+        bruto = b""
+    if isinstance(bruto, bytes):
+        bruto = bruto.decode("utf-8", "replace")
+    try:
+        erro = json.loads(bruto).get("error", {})
+        if not isinstance(erro, dict):
+            erro = {"message": erro}
+    except (ValueError, TypeError, AttributeError):
+        erro = None
+    if erro is None:
+        # Resposta fora do formato da API (pagina do Cloudflare, proxy etc.).
+        if exc.code == 403 or "cloudflare" in bruto.lower() or "error code: 10" in bruto.lower():
+            return "bloqueio_rede", BLOQUEIO_REDE, _detalhe_seguro(bruto, chave)
+        erro = {}
+    codigo_erro = str(erro.get("code", "")).lower()
+    mensagem_original = str(erro.get("message", ""))
+    mensagem = mensagem_original.lower()
+    tipo = str(erro.get("type", "")).lower()
+    detalhe = _detalhe_seguro(mensagem_original or codigo_erro, chave)
     if exc.code == 429 or "rate_limit" in codigo_erro or "quota" in codigo_erro:
-        return "limite", LIMITE
+        return "limite", LIMITE, detalhe
     if exc.code == 401 or any(x in codigo_erro for x in ("invalid_api_key", "authentication", "unauthorized")):
-        return "credencial", CHAVE_RECUSADA
+        return "credencial", CHAVE_RECUSADA, ""
     if exc.code == 403:
-        return ("web", WEB_INDISPONIVEL) if web else ("permissao_modelo", MODELO_INDISPONIVEL)
+        if web:
+            return "web", WEB_INDISPONIVEL, detalhe
+        if "model" in codigo_erro or "model" in mensagem:
+            return "permissao_modelo", MODELO_INDISPONIVEL, detalhe
+        return "acesso_negado", "A Groq negou o acesso para esta chave.", detalhe
     if exc.code >= 500 or exc.code in {408, 424, 425, 498}:
-        return "temporaria", TEMPORARIA
+        return "temporaria", TEMPORARIA, ""
     if web and exc.code in {400, 404, 422}:
-        return "web", WEB_INDISPONIVEL
-    if exc.code in {400, 404, 422} or "model" in codigo_erro or "model" in tipo or "model" in mensagem:
-        return "modelo", MODELO_INDISPONIVEL
-    return "temporaria", TEMPORARIA
+        return "web", WEB_INDISPONIVEL, detalhe
+    if exc.code == 404 or "model" in codigo_erro or "model" in tipo or "model" in mensagem:
+        return "modelo", MODELO_INDISPONIVEL, detalhe
+    if exc.code in {400, 422}:
+        return "requisicao", "A Groq recusou o formato da solicitação.", detalhe
+    return "temporaria", TEMPORARIA, detalhe
 
 
 def _fontes_resposta_web(resposta):
