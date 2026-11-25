@@ -171,3 +171,14 @@ class GroqDiagnosticoTests(TestCase):
         exc = self.erro(opener, 400, corpo)
         self.assertEqual(exc.codigo, "requisicao")
         self.assertIn("unsupported", str(exc))
+
+    @patch("apps.leads.groq.build_opener")
+    def test_modo_json_inclui_palavra_json_e_esquema(self, opener):
+        GroqTransportTests.response(opener, {"choices": [{"finish_reason": "stop", "message": {"content": "{\"itens\":[]}"}}]})
+        esquema = {"type": "object", "properties": {"itens": {"type": "array"}}, "required": ["itens"]}
+        gerar(self.ws.pk, "Analise as fontes.", {"fontes": []}, schema=esquema)
+        payload = json.loads(opener.return_value.open.call_args.args[0].data)
+        sistema = payload["messages"][0]["content"]
+        self.assertIn("json", sistema.lower())
+        self.assertIn('"required": ["itens"]', sistema)
+        self.assertEqual(payload["response_format"], {"type": "json_object"})

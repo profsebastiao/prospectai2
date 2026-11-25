@@ -137,6 +137,13 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
         }
         endpoint = "https://api.groq.com/openai/v1/responses"
     else:
+        if schema:
+            # A Groq exige a palavra "json" nas mensagens no modo json_object e nao recebe
+            # o esquema separadamente; por isso ele segue junto da instrucao.
+            instrucao = (
+                f"{instrucao}\n\nResponda somente com um objeto JSON válido, sem nenhum texto fora dele, "
+                f"seguindo exatamente este esquema JSON: {json.dumps(schema, ensure_ascii=False)}"
+            )
         payload = {
             "model": modelo,
             "messages": [
