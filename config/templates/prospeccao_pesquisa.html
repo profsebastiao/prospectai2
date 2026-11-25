@@ -57,7 +57,9 @@
 </section>
 {% endif %}
 <div class="record-actions">
+    {% if perm_editar %}
     <a class="button secondary" href="{% url 'prospeccao_iniciar' pesquisa.modo %}?repetir={{ pesquisa.pk }}">Revisar critérios e evidências</a>
     <a class="button quiet" href="{% url 'prospeccao_iniciar' pesquisa.modo %}">Nova consulta</a>
+    {% endif %}
 </div>
 {% endblock %}

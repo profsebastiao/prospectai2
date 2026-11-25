@@ -18,9 +18,11 @@
     <section class="panel record-detail record-detail-tasks">
         <div class="panel-header">
             <h2>Tarefas do projeto</h2>
+            {% if perm_editar %}
             <a class="button primary" href="{% url 'gestao_novo' 'tarefas' %}?projeto={{ projeto.pk }}">
                 {% include "prospect_icon.html" with icon="plus" only %} Nova tarefa
             </a>
+            {% endif %}
         </div>
         {% include "projeto_tarefa_grupo.html" with tarefas=tarefas_abertas grupo="Em aberto" vazio="Nenhuma tarefa em aberto." %}
         {% include "projeto_tarefa_grupo.html" with tarefas=tarefas_concluidas grupo="Concluídas" vazio="Nenhuma tarefa concluída." %}

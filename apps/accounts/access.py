@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 
-from .models import Workspace, WorkspaceOwned
+from .models import Workspace, WorkspaceMembership, WorkspaceOwned
 
 
 WORKSPACE_LOOKUPS = {
@@ -20,6 +20,54 @@ WORKSPACE_LOOKUPS = {
     "finance.cobranca": "contrato__cliente__workspace",
     "finance.pagamento": "cobranca__contrato__cliente__workspace",
 }
+
+
+GESTOR = WorkspaceMembership.Papel.GESTOR
+EQUIPE = WorkspaceMembership.Papel.EQUIPE
+LEITURA = WorkspaceMembership.Papel.LEITURA
+
+ROTAS_LIVRES = {
+    "prospectai_login", "prospectai_logout", "workspace_select", "configuracoes", "foto_perfil_usuario",
+}
+ROTAS_FINANCEIRAS = {"financeiro", "gerar_mensalidades_pagina"}
+SECOES_FINANCEIRAS = {"contratos", "cobrancas", "pagamentos"}
+ROTAS_DE_CRIACAO = {"gestao_novo", "portal_cliente_novo", "projeto_contratacao_novo"}
+METODOS_SEGUROS = {"GET", "HEAD", "OPTIONS"}
+
+
+def papel_de(request):
+    """Papel do usuario na empresa ativa (superusuario conta como gestor)."""
+    if hasattr(request, "_papel_prospectai"):
+        return request._papel_prospectai
+    papel = None
+    user = getattr(request, "user", None)
+    workspace = getattr(request, "workspace", None)
+    if user is not None and user.is_authenticated and user.is_active and workspace is not None:
+        if user.is_superuser:
+            papel = GESTOR
+        else:
+            papel = WorkspaceMembership.objects.filter(
+                workspace=workspace, usuario=user,
+            ).values_list("papel", flat=True).first()
+    request._papel_prospectai = papel
+    return papel
+
+
+def pode_editar(request):
+    return papel_de(request) in {GESTOR, EQUIPE}
+
+
+def pode_financeiro(request):
+    return papel_de(request) == GESTOR
+
+
+def permissoes(request):
+    """Context processor: disponibiliza as permissoes em todos os templates."""
+    return {
+        "papel_atual": papel_de(request),
+        "perm_editar": pode_editar(request),
+        "perm_financeiro": pode_financeiro(request),
+    }
 
 
 def workspaces_for(user):
@@ -77,10 +125,23 @@ class WorkspaceMiddleware:
             if request.user.is_authenticated and not request.user.is_superuser:
                 raise PermissionDenied
             return None
-        if match.url_name in {
-            "prospectai_login", "prospectai_logout", "workspace_select", "configuracoes", "foto_perfil_usuario"
-        }:
+        rota = match.url_name
+        if rota in ROTAS_LIVRES:
             return None
-        if request.user.is_authenticated and request.workspace is None:
+        if not request.user.is_authenticated:
+            return None
+        if request.workspace is None:
             return redirect("workspace_select")
+        financeiro = rota in ROTAS_FINANCEIRAS or (
+            rota in {"gestao_lista", "gestao_novo", "gestao_editar"}
+            and view_kwargs.get("secao") in SECOES_FINANCEIRAS
+        )
+        if financeiro and not pode_financeiro(request):
+            raise PermissionDenied
+        if rota == "integracao_groq":
+            return None  # a propria tela confere quem gerencia a integracao
+        if not pode_editar(request) and (
+            request.method not in METODOS_SEGUROS or rota in ROTAS_DE_CRIACAO
+        ):
+            raise PermissionDenied
         return None

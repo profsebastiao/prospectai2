@@ -17,7 +17,7 @@
     {% include "record_fields.html" with form=form only %}
     <div class="record-actions record-form-actions">
         <button class="button primary" type="submit">Buscar fontes públicas</button>
-        <a class="button secondary" href="{% url 'gestao_novo' 'leads' %}">Novo lead manualmente</a>
+        {% if perm_editar %}<a class="button secondary" href="{% url 'gestao_novo' 'leads' %}">Novo lead manualmente</a>{% endif %}
     </div>
 </form>
 

@@ -1,7 +1,7 @@
 {% extends "prospeccao_base.html" %}
 {% block title %}Histórico de prospecção | ProspectAI{% endblock %}
 {% block heading %}Histórico de prospecção{% endblock %}
-{% block page_actions %}<a class="button primary" href="{% url 'prospeccao_iniciar' 'oportunidades' %}">Encontrar oportunidades</a>{% endblock %}
+{% block page_actions %}{% if perm_editar %}<a class="button primary" href="{% url 'prospeccao_iniciar' 'oportunidades' %}">Encontrar oportunidades</a>{% endif %}{% endblock %}
 {% block content %}
 <section class="panel clients-panel" aria-label="Pesquisas da empresa ativa">
     {% if pagina.object_list %}

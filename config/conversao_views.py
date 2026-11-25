@@ -7,7 +7,7 @@ from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 
-from apps.accounts.access import scoped_queryset
+from apps.accounts.access import pode_editar, scoped_queryset
 from apps.leads.models import Lead
 from apps.clients.models import Cliente
 
@@ -86,6 +86,6 @@ def conversao_leads(request):
         "itens": itens,
         "pagina": pagina,
         "busca": busca,
-        "pode_converter": True,
+        "pode_converter": pode_editar(request),
         "pode_ver_clientes": True,
     })

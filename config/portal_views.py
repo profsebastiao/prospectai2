@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.forms import modelform_factory
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.accounts.access import scope_form, scoped_queryset
+from apps.accounts.access import pode_editar, scope_form, scoped_queryset
 from apps.clients.models import Cliente
 
 
@@ -37,8 +37,8 @@ def portal_clientes(request):
     return render(request, "portal_clientes.html", {
         "pagina": pagina,
         "busca": busca,
-        "pode_criar": True,
-        "pode_editar": True,
+        "pode_criar": pode_editar(request),
+        "pode_editar": pode_editar(request),
     })
 
 
@@ -60,6 +60,10 @@ def portal_cliente_novo(request):
 def portal_cliente_editar(request, pk):
     cliente = get_object_or_404(scoped_queryset(request, Cliente), pk=pk)
     form = ClienteForm(request.POST or None, instance=cliente)
+    somente_leitura = not pode_editar(request)
+    if somente_leitura:
+        for campo in form.fields.values():
+            campo.disabled = True
 
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -67,7 +71,8 @@ def portal_cliente_editar(request, pk):
 
     return render(request, "portal_cliente_form.html", {
         "form": form,
-        "titulo": "Editar cliente",
+        "titulo": "Cliente" if somente_leitura else "Editar cliente",
+        "somente_leitura": somente_leitura,
     })
 
 

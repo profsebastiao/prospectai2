@@ -55,7 +55,7 @@
             <a href="{% url 'agenda' %}"{% if route == "agenda" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="calendar" only %} <span>Agenda</span></a>
             <a href="{% url 'kanban' %}"{% if route == "kanban" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="kanban" only %} <span>Kanban</span></a>
             </div>
-            <a href="{% url 'financeiro' %}"{% if route == "financeiro" or route == "gerar_mensalidades_pagina" or section == "contratos" or section == "cobrancas" or section == "pagamentos" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="finance" only %} <span>Financeiro</span></a>
+            {% if perm_financeiro %}<a href="{% url 'financeiro' %}"{% if route == "financeiro" or route == "gerar_mensalidades_pagina" or section == "contratos" or section == "cobrancas" or section == "pagamentos" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="finance" only %} <span>Financeiro</span></a>{% endif %}
             {% if request.user.is_superuser %}
             <div class="menu-group menu-admin">
                 <a href="{% url 'portal_administracao' %}"{% if route == "portal_administracao" %} aria-current="page"{% endif %}>{% include "prospect_icon.html" with icon="shield" only %} <span>Administração da plataforma</span></a>

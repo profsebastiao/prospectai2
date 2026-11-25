@@ -3,7 +3,7 @@
 {% block title %}Kanban | ProspectAI{% endblock %}
 {% block heading %}Kanban de tarefas{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'accounts/kanban.css' %}?v=assigned-1">{% endblock %}
-{% block page_actions %}<a class="button primary" href="{% url 'gestao_novo' 'tarefas' %}">+ Nova tarefa</a>{% endblock %}
+{% block page_actions %}{% if perm_editar %}<a class="button primary" href="{% url 'gestao_novo' 'tarefas' %}">+ Nova tarefa</a>{% endif %}{% endblock %}
 {% block content %}
 <section class="kanban-overview panel" aria-label="Resumo das tarefas filtradas">
     <dl class="kanban-metrics">

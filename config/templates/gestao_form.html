@@ -16,7 +16,7 @@
 {% block page_actions %}
 <div class="record-actions">
     {% if status %}<span class="status-tag {{ status_class }}">{{ status }}</span>{% endif %}
-    {% if secao == "leads" and registro_id %}<a class="button secondary" href="{% url 'prospeccao_iniciar' 'identidade' %}?lead={{ registro_id }}">Analisar este lead</a>{% endif %}
+    {% if secao == "leads" and registro_id and perm_editar %}<a class="button secondary" href="{% url 'prospeccao_iniciar' 'identidade' %}?lead={{ registro_id }}">Analisar este lead</a>{% endif %}
 </div>
 {% endblock %}
 {% block content %}
@@ -37,7 +37,7 @@
     {% csrf_token %}
     {% include "record_fields.html" with form=formulario only %}
     <div class="record-actions record-form-actions">
-        <button class="button primary" type="submit">Salvar</button>
+        {% if not somente_leitura %}<button class="button primary" type="submit">Salvar</button>{% endif %}
         {% if projeto_contexto %}
         <a class="button secondary" href="{% url 'projeto_detalhe' projeto_contexto.pk %}">Cancelar</a>
         {% elif projeto_detalhe_id %}

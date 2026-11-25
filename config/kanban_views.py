@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.accounts.access import scoped_queryset
+from apps.accounts.access import pode_editar, scoped_queryset
 from apps.clients.models import Cliente
 from apps.projects.models import Projeto
 from apps.tasks.models import Tarefa
@@ -118,7 +118,7 @@ def kanban(request):
         "minhas": minhas,
         "colunas": colunas,
         "status_choices": status_choices,
-        "pode_editar": True,
+        "pode_editar": pode_editar(request),
         "total": total,
         "pendentes": total - concluidas,
         "concluidas": concluidas,

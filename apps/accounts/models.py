@@ -41,8 +41,16 @@ class Workspace(models.Model):
 
 
 class WorkspaceMembership(models.Model):
+    class Papel(models.TextChoices):
+        GESTOR = "gestor", "Gestor (acesso total, inclusive financeiro)"
+        EQUIPE = "equipe", "Equipe (edita CRM, projetos e tarefas; sem financeiro)"
+        LEITURA = "leitura", "Somente leitura (sem financeiro)"
+
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    papel = models.CharField(
+        "papel", max_length=10, choices=Papel.choices, default=Papel.EQUIPE,
+    )
     pode_gerenciar_gemini = models.BooleanField("pode gerenciar a integracao de IA desta empresa", default=False)
 
     class Meta:

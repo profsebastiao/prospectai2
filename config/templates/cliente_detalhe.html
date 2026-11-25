@@ -9,7 +9,7 @@
 {% block page_actions %}
 <div class="record-actions">
     {% if cliente.ativo %}<span class="status-tag status-positive">Ativo</span>{% else %}<span class="status-tag">Inativo</span>{% endif %}
-    <a class="button primary" href="{% url 'portal_cliente_editar' cliente.pk %}">Editar cliente</a>
+    {% if perm_editar %}<a class="button primary" href="{% url 'portal_cliente_editar' cliente.pk %}">Editar cliente</a>{% endif %}
 </div>
 {% endblock %}
 {% block content %}

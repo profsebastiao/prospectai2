@@ -38,7 +38,9 @@ class WorkspaceAccessTests(TestCase):
     def make_company(cls, name, slug):
         user = get_user_model().objects.create_user(slug, password=cls.password)
         workspace = Workspace.objects.create(nome=name, slug=slug)
-        WorkspaceMembership.objects.create(workspace=workspace, usuario=user)
+        WorkspaceMembership.objects.create(
+            workspace=workspace, usuario=user, papel=WorkspaceMembership.Papel.GESTOR,
+        )
         lead = Lead.objects.create(workspace=workspace, nome=f"Lead-{name}")
         customer = Cliente.objects.create(workspace=workspace, nome=f"Cliente-{name}")
         service = Servico.objects.create(workspace=workspace, nome=f"Servico-{name}")

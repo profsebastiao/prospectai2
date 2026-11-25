@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.contrib import messages
 
-from apps.accounts.access import scoped_queryset
+from apps.accounts.access import pode_editar, scoped_queryset
 from apps.accounts.models import PerfilUsuario
 from apps.clients.models import Cliente
 from apps.projects.models import Projeto, ProjetoServico
@@ -118,7 +118,7 @@ def projeto_detalhe(request, pk):
             len(concluidas) * 100 / total
         ) if total else 0,
         "pode_ver_cliente": True,
-        "pode_editar_projeto": True,
+        "pode_editar_projeto": pode_editar(request),
         "pode_editar_tarefa": True,
     })
 

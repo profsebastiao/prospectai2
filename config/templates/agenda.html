@@ -248,7 +248,7 @@
             <a class="button secondary" href="{% querystring visao='semanal' semana=semana_referencia mes=None %}"{% if not mensal %} aria-current="page"{% endif %}>Semana</a>
             <a class="button secondary" href="{% querystring visao='mensal' mes=mes_referencia semana=None %}"{% if mensal %} aria-current="page"{% endif %}>Mês</a>
         </nav>
-        <a class="button primary" href="{% url 'gestao_novo' 'tarefas' %}">+ Nova tarefa</a>
+        {% if perm_editar %}<a class="button primary" href="{% url 'gestao_novo' 'tarefas' %}">+ Nova tarefa</a>{% endif %}
     </div>
 
     <div class="agenda-toolbar">

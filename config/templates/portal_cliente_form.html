@@ -9,7 +9,7 @@
     {% csrf_token %}
     {% include "record_fields.html" with form=form only %}
     <div class="record-actions record-form-actions">
-        <button class="button primary" type="submit">Salvar cliente</button>
+        {% if not somente_leitura %}<button class="button primary" type="submit">Salvar cliente</button>{% endif %}
         <a class="button secondary" href="{% url 'portal_clientes' %}">Cancelar</a>
     </div>
 </form>

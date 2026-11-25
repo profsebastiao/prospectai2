@@ -11,7 +11,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.accounts.access import scope_form, scoped_queryset
+from apps.accounts.access import pode_editar, scope_form, scoped_queryset
 from apps.leads.models import LEAD_STAGES_CLOSED, Lead
 from apps.projects.models import Projeto
 from apps.tasks.models import Tarefa
@@ -214,8 +214,8 @@ def gestao_lista(request, secao):
         "task_filters": task_filters,
         "lead_stages": lead_stages,
         "retorno_filtro": retorno_filtro,
-        "pode_criar": True,
-        "pode_editar": True,
+        "pode_criar": pode_editar(request),
+        "pode_editar": pode_editar(request),
     })
 
 
@@ -283,7 +283,8 @@ def gestao_editar(request, secao, pk):
         and request.POST.get("acao") == "registrar_contato"
     )
     form_contato = None
-    if secao == "leads":
+    somente_leitura = not pode_editar(request)
+    if secao == "leads" and not somente_leitura:
         retorno = registro.proximo_retorno
         form_contato = RegistrarContatoForm(
             request.POST if registrar_contato else None,
@@ -300,6 +301,9 @@ def gestao_editar(request, secao, pk):
     Formulario = criar_formulario(modelo)
     dados = request.POST if request.method == "POST" and not registrar_contato else None
     formulario = scope_form(request, Formulario(dados, instance=registro))
+    if somente_leitura:
+        for campo in formulario.fields.values():
+            campo.disabled = True
 
     if formulario.is_bound and formulario.is_valid() and salvar_formulario(formulario):
         messages.success(request, "Registro salvo com sucesso.")
@@ -316,4 +320,5 @@ def gestao_editar(request, secao, pk):
         "form_contato": form_contato,
         "registro_id": registro.pk,
         "ultimo_contato": registro.ultimo_contato if secao == "leads" else None,
+        "somente_leitura": somente_leitura,
     })

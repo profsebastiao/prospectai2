@@ -9,6 +9,7 @@ from .models import Workspace, WorkspaceMembership
 class WorkspaceMembershipInline(admin.TabularInline):
     model = WorkspaceMembership
     autocomplete_fields = ["usuario"]
+    fields = ["usuario", "papel", "pode_gerenciar_gemini"]
     extra = 0
 
 

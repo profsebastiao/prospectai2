@@ -6,7 +6,7 @@
 {% block page_actions %}
 <div class="overview-actions">
     <a class="button secondary" href="{% url 'agenda' %}">Abrir agenda</a>
-    <a class="button primary" href="{% url 'projeto_contratacao_novo' %}">+ Novo projeto</a>
+    {% if perm_editar %}<a class="button primary" href="{% url 'projeto_contratacao_novo' %}">+ Novo projeto</a>{% endif %}
 </div>
 {% endblock %}
 {% block content %}
