@@ -60,6 +60,12 @@ PERDAS = {
         "ou procurar outra empresa que responda na hora."
     ),
 }
+PERDA_NAO_REIVINDICADO = (
+    "O perfil da empresa existe no Google, mas aparece com \"Reivindicar esta empresa\": o dono ainda não assumiu o controle. "
+    "Assim ele não responde avaliações, não corrige telefone, horário e fotos e não publica ofertas. Informações desatualizadas "
+    "no Google fazem o cliente ligar para o número errado ou achar que a loja está fechada."
+)
+NOTA_GOOGLE = re.compile(r"\b([1-5][.,]\d)\s*(?:★+|estrelas?)?\s*\(\s*(\d{1,5})\s*\)")
 PALAVRAS_SERVICO = {
     "site": ("site",),
     "landing": ("landing",),
@@ -177,8 +183,16 @@ def diagnosticar(candidato, fontes, servicos=(), cidade=""):
         adicionar("whatsapp", (celulares or telefones)[0], "", "mencionado")
     if re.search(r"\bsite\b|www\.", minusculo) and not presenca["site"]["itens"]:
         adicionar("site", "Citado no texto, sem link", "", "mencionado")
-    if re.search(r"google meu neg[oó]cio|google maps|avalia[cç][oõ]es no google", minusculo) and not presenca["google"]["itens"]:
-        adicionar("google", "Citado no texto, sem link", "", "mencionado")
+    nao_reivindicado = bool(re.search(r"reivindicar (?:esta|este) (?:empresa|neg[oó]cio)|claim this business", minusculo))
+    nota = NOTA_GOOGLE.search(texto)
+    if (nao_reivindicado or nota or re.search(r"google meu neg[oó]cio|google maps|avalia[cç][oõ]es no google", minusculo)) \
+            and not presenca["google"]["itens"]:
+        adicionar("google", "Perfil no Google (citado, sem link)", "", "mencionado")
+    if presenca["google"]["itens"]:
+        if nota:
+            adicionar("google", f"Nota {nota[1].replace('.', ',')} · {nota[2]} avaliações", "", presenca["google"]["situacao"])
+        if nao_reivindicado:
+            adicionar("google", "Perfil não reivindicado pelo dono", "", presenca["google"]["situacao"])
 
     enderecos = list(dict.fromkeys(" ".join(EMOJI.sub(" ", m[0]).split()) for m in ENDERECO.finditer(texto)))[:2]
     emails = list(dict.fromkeys(m[0] for m in EMAIL.finditer(texto)))[:2]
@@ -202,6 +216,11 @@ def diagnosticar(candidato, fontes, servicos=(), cidade=""):
          "servico": _servico_para(codigo, servicos)}
         for codigo in ESSENCIAIS if presenca[codigo]["situacao"] == "nao"
     ]
+    if nao_reivindicado and presenca["google"]["situacao"] != "nao":
+        perdas.insert(0, {
+            "codigo": "google_reivindicar", "canal": "Google Meu Negócio sem dono", "texto": PERDA_NAO_REIVINDICADO,
+            "servico": _servico_para("google", servicos),
+        })
     encontrados = sum(1 for codigo in ESSENCIAIS if presenca[codigo]["situacao"] != "nao")
     return {
         "empresa": empresa, "canais": canais, "perdas": perdas,

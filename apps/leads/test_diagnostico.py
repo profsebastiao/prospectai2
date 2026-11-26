@@ -198,3 +198,21 @@ class DiagnosticoAjustesTests(TestCase):
         d = diagnosticar(candidato_manual(texto), [fonte(texto)], SERVICOS)
         situacao = {c["codigo"]: c["situacao"] for c in d["canais"]}
         self.assertEqual(situacao["whatsapp"], "nao")
+
+
+    def test_google_maps_nao_reivindicado_vira_argumento(self):
+        texto = (
+            "Ótica virtuosa 5,0 ★★★★★ (15) Ótica. Av. Visc. de Pelotas, 162 - Centro, João Pessoa - PB, 58013-000. "
+            "(83) 98887-9222. Reivindicar esta empresa"
+        )
+        f = fonte(texto, url="https://www.google.com/maps/place/%C3%93tica+virtuosa/@-7.1027977,-34.9102095,14z")
+        d = diagnosticar(candidato_manual(texto), [f], SERVICOS)
+        google = next(c for c in d["canais"] if c["codigo"] == "google")
+        self.assertEqual(google["situacao"], "encontrado")
+        valores = [i["valor"] for i in google["itens"]]
+        self.assertIn("Nota 5,0 · 15 avaliações", valores)
+        self.assertIn("Perfil não reivindicado pelo dono", valores)
+        self.assertEqual(d["perdas"][0]["codigo"], "google_reivindicar")
+        self.assertEqual(d["perdas"][0]["servico"], "Google Meu Negócio")
+        self.assertNotIn("google", [p["codigo"] for p in d["perdas"]])
+        self.assertIn("Google Meu Negócio sem dono", texto_relatorio(d))

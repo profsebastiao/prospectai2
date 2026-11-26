@@ -37,7 +37,7 @@
     <h2>O que a empresa está deixando de ganhar</h2>
     {% for perda in d.perdas %}
     <article class="diagnostico-perda">
-        <h3>Sem {{ perda.canal }}</h3>
+        <h3>{% if perda.codigo == "google_reivindicar" %}{{ perda.canal }}{% else %}Sem {{ perda.canal }}{% endif %}</h3>
         <p>{{ perda.texto }}</p>
         {% if perda.servico %}<p><span class="status-tag status-positive">Como resolver</span> {{ perda.servico }}</p>{% endif %}
     </article>
