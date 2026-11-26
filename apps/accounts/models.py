@@ -85,6 +85,10 @@ class IntegracaoGemini(models.Model):
     ultimo_teste = models.DateTimeField(null=True, blank=True)
     status_teste = models.CharField(max_length=20, blank=True)
     versao = models.PositiveIntegerField(default=1, editable=False)
+    # Busca no Google pelo Serper.dev (chave própria da empresa, criptografada).
+    busca_credencial = models.BinaryField(null=True, blank=True, editable=False)
+    busca_ultimo_teste = models.DateTimeField(null=True, blank=True)
+    busca_status = models.CharField(max_length=30, blank=True)
 
 
 class EventoIntegracaoGemini(models.Model):

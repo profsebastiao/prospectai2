@@ -97,6 +97,18 @@ def coletar(consultas, workspace_id):
         return [], [str(exc)], ""
 
 
+def coletar_google(consultas, workspace_id, manuais=()):
+    """Busca no Google (Serper.dev) e junta com as evidências coladas pelo usuário."""
+    from .serper import buscar_google  # import tardio: serper usa os modelos de leads
+
+    try:
+        encontrados = buscar_google(consultas, workspace_id)
+    except IAIndisponivel as exc:
+        return normalizar_fontes(list(manuais)), [str(exc)]
+    avisos = [] if encontrados else ["O Google não retornou resultados para esta busca. Tente outra consulta."]
+    return normalizar_fontes([*manuais, *encontrados]), avisos
+
+
 def consultas_oportunidades(criterios):
     # Put the location and search intent before descriptive text so every query
     # keeps them even when several services are selected.
@@ -248,7 +260,7 @@ def ranquear(dados, fontes, criterios):
         palavras_evidencia = {palavra.rstrip("s") for palavra in re.findall(r"\w+", evidencia)}
         compatibilidade = len(palavras_servico & palavras_evidencia)
         direta = INTENCAO.search(evidencia) and compatibilidade
-        if fonte.get("origem") in {"groq", "gemini", "openrouter", "web"} and not re.search(r'["“«].+["”»]', registro["evidencia"]):
+        if fonte.get("origem") in {"groq", "gemini", "openrouter", "google", "web"} and not re.search(r'["“«].+["”»]', registro["evidencia"]):
             direta = False
         if tipo == "demanda" and not direta:
             tipo = "insuficiente"

@@ -39,7 +39,8 @@
             <li>
                 <span class="prospecting-query-text">{{ consulta }}</span>
                 <span class="prospecting-query-actions">
-                    <a class="button secondary" href="https://www.google.com/search?q={{ consulta|urlencode }}" target="_blank" rel="noopener noreferrer">Pesquisar no Google</a>
+                    {% if busca_google %}<button class="button primary" type="submit" name="consulta_google" value="{{ consulta }}" data-aguarde="Buscando no Google…">Buscar evidências</button>{% endif %}
+                    <a class="button secondary" href="https://www.google.com/search?q={{ consulta|urlencode }}" target="_blank" rel="noopener noreferrer">Abrir no Google</a>
                     <button class="button quiet" type="button" data-copiar="{{ consulta }}">Copiar</button>
                 </span>
             </li>
@@ -50,7 +51,8 @@
     <section class="prospecting-criteria" aria-labelledby="evidencias-title">
         <h2 id="evidencias-title">Evidências públicas</h2>
         <p class="record-muted">Cole os trechos que encontrou (até {{ evidencias.max_num }}). O trecho é o que importa: links colados não são abertos automaticamente. Use somente material público e retire informações confidenciais.</p>
-        {% if not web_habilitada %}<p class="record-muted">Busca na web do {{ ia_nome }} desativada. A análise usa somente os trechos fornecidos.</p>{% endif %}
+        {% if busca_google %}<p class="record-muted">Busca no Google conectada: use <em>Buscar evidências</em> numa consulta sugerida ou <em>Buscar no Google automaticamente</em>. As evidências que você colar também entram na análise.</p>
+        {% elif not web_habilitada %}<p class="record-muted">Busca automática desligada: a análise usa somente os trechos que você colar. Para o sistema buscar no Google sozinho, conecte o Serper.dev em Configurações → Integrações.</p>{% endif %}
         {{ evidencias.management_form }}
         {{ evidencias.non_form_errors }}
         {% for evidencia in evidencias %}
@@ -61,7 +63,8 @@
         {% endfor %}
     </section>
     <div class="record-actions record-form-actions">
-        <button class="button primary" type="submit" name="acao" value="manual" data-aguarde="Analisando… pode levar até 1 minuto">Analisar evidências fornecidas</button>
+        {% if busca_google %}<button class="button primary" type="submit" name="acao" value="google" data-aguarde="Buscando no Google e analisando… pode levar até 1 minuto">Buscar no Google automaticamente</button>{% endif %}
+        <button class="button {% if busca_google %}secondary{% else %}primary{% endif %}" type="submit" name="acao" value="manual" data-aguarde="Analisando… pode levar até 1 minuto">Analisar evidências fornecidas</button>
         {% if web_habilitada %}<button class="button secondary" type="submit" name="acao" value="web">Pesquisar na web com {{ ia_nome }} (autorizado)</button>{% endif %}
         <a class="button secondary" href="{% url 'gestao_lista' 'leads' %}">Voltar a Leads</a>
     </div>

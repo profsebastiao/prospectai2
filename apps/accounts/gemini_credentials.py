@@ -30,22 +30,34 @@ def _chaves():
         ) from None
 
 
-def _contexto(workspace_id):
-    return f"prospectai:gemini:v1:{workspace_id}".encode("ascii")
+def _contexto(workspace_id, finalidade="gemini"):
+    # A finalidade separa as credenciais: a chave da IA não abre no lugar da chave de busca e vice-versa.
+    return f"prospectai:{finalidade}:v1:{workspace_id}".encode("ascii")
 
 
 @sensitive_variables()
-def criptografar(workspace_id, chave):
+def criptografar(workspace_id, chave, finalidade="gemini"):
     nonce = os.urandom(12)
-    return nonce + AESGCM(_chaves()[0]).encrypt(nonce, chave.encode(), _contexto(workspace_id))
+    return nonce + AESGCM(_chaves()[0]).encrypt(nonce, chave.encode(), _contexto(workspace_id, finalidade))
 
 
 @sensitive_variables()
 def descriptografar(integracao):
-    dados = bytes(integracao.credencial)
+    return _abrir(bytes(integracao.credencial), integracao.workspace_id, "gemini")
+
+
+@sensitive_variables()
+def descriptografar_busca(integracao):
+    if not integracao.busca_credencial:
+        raise CredencialIndisponivel("A busca no Google não está conectada para esta empresa.")
+    return _abrir(bytes(integracao.busca_credencial), integracao.workspace_id, "serper")
+
+
+@sensitive_variables()
+def _abrir(dados, workspace_id, finalidade):
     for chave in _chaves():
         try:
-            return AESGCM(chave).decrypt(dados[:12], dados[12:], _contexto(integracao.workspace_id)).decode()
+            return AESGCM(chave).decrypt(dados[:12], dados[12:], _contexto(workspace_id, finalidade)).decode()
         except (InvalidTag, ValueError):
             continue
     raise CredencialIndisponivel(
@@ -59,6 +71,10 @@ def pode_gerenciar_ia(user, workspace):
     return user.is_superuser or WorkspaceMembership.objects.filter(
         usuario=user, workspace=workspace, pode_gerenciar_gemini=True,
     ).exists()
+
+
+def busca_conectada(workspace_id):
+    return IntegracaoGemini.objects.filter(workspace_id=workspace_id, busca_credencial__isnull=False).exists()
 
 
 def status_ia(workspace_id):

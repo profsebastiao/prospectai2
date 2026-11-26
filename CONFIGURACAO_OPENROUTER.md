@@ -29,6 +29,16 @@ Veja os modelos e preços em <https://openrouter.ai/models>.
 
 Desativada por padrão. Usa o plugin de busca do OpenRouter, que devolve as fontes com links reais. A busca é cobrada pelo OpenRouter mesmo com modelos gratuitos, então a conta precisa de créditos. Um administrador da empresa testa e habilita na tela de integração.
 
+## Busca no Google (Serper.dev)
+
+Para a prospecção buscar evidências no Google sozinha:
+
+1. Crie uma conta em <https://serper.dev> (o cadastro gratuito traz créditos de busca, sem cartão) e copie a chave em **API Keys**.
+2. No ProspectAI, abra **Configurações → Integrações**, cole a chave em **Busca no Google (Serper.dev)** e clique em **Testar e salvar chave de busca**.
+3. Na prospecção, use **Buscar evidências** numa consulta sugerida ou **Buscar no Google automaticamente**.
+
+Cada consulta usa 1 crédito do Serper. O limite por empresa é definido por `SERPER_DAILY_LIMIT` (padrão: 30 buscas por dia). A chave fica criptografada, separada da chave da IA.
+
 ## Depois de atualizar o código
 
 O servidor não recarrega o código sozinho. Rode `Parar-ProspectAI.cmd` e depois `Iniciar-ProspectAI.cmd`.

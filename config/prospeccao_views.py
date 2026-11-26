@@ -21,8 +21,9 @@ from apps.leads.ia import SEM_CHAVE, WEB_INDISPONIVEL
 from apps.leads.models import AnaliseProspeccao, Lead, PesquisaProspeccao, RelatorioProspeccao
 from apps.leads.perfis import instagram_handle, profile_identity
 from apps.leads.diagnostico import diagnosticar, limpar_nome, nome_da_fonte
+from apps.accounts.gemini_credentials import busca_conectada
 from apps.leads.prospeccao import (
-    IAIndisponivel, analisar_candidato, analisar_ia, canais, coletar,
+    IAIndisponivel, analisar_candidato, analisar_ia, canais, coletar, coletar_google,
     consultas_oportunidades, fontes_confirmadas, identificar, normalizar, normalizar_fontes,
     ranquear, reportar, sugerir_consultas,
 )
@@ -261,11 +262,15 @@ def iniciar(request, modo):
             "sem_servicos": not criterios.fields["servicos"].queryset.exists(),
             "evidencias": evidencias, "sugestoes": sugestoes, "aviso": aviso,
             "web_habilitada": usa_web, "ia_conectada": config_ia is not None,
+            "busca_google": busca_conectada(request.workspace.pk),
             "pode_gerenciar_ia": pode_gerenciar_ia(request.user, request.workspace),
         })
     if data is not None:
         acao = request.POST.get("acao", "manual")
-        if acao not in {"sugerir", "manual", "web"} or (acao == "sugerir" and not oportunidades):
+        consulta_google = " ".join(request.POST.get("consulta_google", "").split())[:160]
+        if consulta_google:
+            acao = "google"
+        if acao not in {"sugerir", "manual", "web", "google"} or (acao == "sugerir" and not oportunidades):
             return HttpResponseBadRequest("Ação de prospecção inválida.")
         criterios_validos = criterios.is_valid()
         identidade_valida = identidade is None or identidade.is_valid()
@@ -278,6 +283,8 @@ def iniciar(request, modo):
                     aviso = str(exc)
             elif acao == "web" and not usa_web:
                 aviso = SEM_CHAVE if not config_ia else WEB_INDISPONIVEL
+            elif acao == "google" and not busca_conectada(request.workspace.pk):
+                aviso = "Conecte a busca no Google (Serper.dev) em Configurações → Integrações para buscar evidências automaticamente."
             else:
                 if acao == "manual":
                     if not evidencias.is_valid():
@@ -291,6 +298,9 @@ def iniciar(request, modo):
                         itens = _evidencias_manuais(evidencias)
                         if not itens:
                             aviso = "Cole pelo menos um trecho público. Informar apenas nome, @perfil ou link não consulta a fonte."
+                elif acao == "google":
+                    # Evidências coladas também entram; as erradas são ignoradas para não travar a busca.
+                    itens = _evidencias_manuais(evidencias) if evidencias.is_valid() else []
                 else:
                     itens = []
                 if not aviso:
@@ -307,8 +317,10 @@ def iniciar(request, modo):
                         alvo = " ".join(x for x in (consulta, rede, cidade) if x)
                         consultas = (alvo + " perfil negócio", alvo + " site oficial contato Google Maps")
 
-                    dia = timezone.localdate().isoformat() if acao == "web" else ""
-                    chave = _chave(modo, consulta, contexto, acao, itens, dia)
+                    if acao == "google" and consulta_google:
+                        consultas = (consulta_google,)
+                    dia = timezone.localdate().isoformat() if acao in {"web", "google"} else ""
+                    chave = _chave(modo, consulta, contexto, acao, itens, dia, consultas if acao == "google" else ())
                     existentes = scoped_queryset(request, PesquisaProspeccao).filter(chave=chave)
                     registro = existentes.first()
                     if registro and not registro.avisos:
@@ -318,10 +330,14 @@ def iniciar(request, modo):
                             "Mostrando o resultado anterior; mude ou acrescente evidências para uma nova análise.",
                         )
                         return redirect("prospeccao_pesquisa", pk=registro.pk)
-                    fontes, avisos, widget = (
-                        coletar(consultas, request.workspace.pk) if acao == "web"
-                        else (normalizar_fontes(itens), [], "")
-                    )
+                    if acao == "google":
+                        fontes, avisos = coletar_google(consultas, request.workspace.pk, itens)
+                        widget = ""
+                    else:
+                        fontes, avisos, widget = (
+                            coletar(consultas, request.workspace.pk) if acao == "web"
+                            else (normalizar_fontes(itens), [], "")
+                        )
                     if acao == "web" and not fontes and any(
                         request.POST.get(f"{evidencias.prefix}-{i}-{campo}")
                         for i in range(evidencias.max_num)

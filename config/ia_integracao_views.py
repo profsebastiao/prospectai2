@@ -13,8 +13,10 @@ from django.views.decorators.debug import sensitive_post_parameters, sensitive_v
 from django.views.decorators.http import require_http_methods
 
 from apps.accounts.gemini_credentials import (
-    CredencialIndisponivel, criptografar, descriptografar, pode_gerenciar_ia, status_ia, web_habilitada,
+    CredencialIndisponivel, busca_conectada, criptografar, descriptografar, descriptografar_busca,
+    pode_gerenciar_ia, status_ia, web_habilitada,
 )
+from apps.leads import serper
 from apps.accounts.models import EventoIntegracaoGemini, IntegracaoGemini
 from apps.leads.ia import SEM_CHAVE, IAIndisponivel, info, limite_global, limite_padrao, testar_chave
 
@@ -45,6 +47,10 @@ def _estado(request, aviso="", sucesso=False):
         "modelo": provedor["modelo"],
         "limite_global": limite_global(),
         "primeiro": request.GET.get("primeiro") == "1",
+        "busca": IntegracaoGemini.objects.filter(workspace=workspace).values(
+            "busca_ultimo_teste", "busca_status",
+        ).first() if busca_conectada(workspace.pk) else None,
+        "busca_limite": serper.limite_diario(),
     })
 
 
@@ -65,8 +71,47 @@ def _alterar(request, atual, evento, **dados):
         _auditar(request, evento)
 
 
-@sensitive_post_parameters("chave")
+@sensitive_post_parameters("chave", "chave_busca")
 @sensitive_variables()
+@sensitive_variables()
+def _acao_busca(request, acao):
+    """Conecta, testa ou remove a chave do Serper.dev (busca no Google) da empresa."""
+    atual = IntegracaoGemini.objects.filter(workspace=request.workspace).first()
+    if not atual:
+        return _estado(request, "Conecte primeiro a IA (OpenRouter) desta empresa; depois conecte a busca no Google.")
+    try:
+        if acao == "busca_salvar":
+            chave = request.POST.get("chave_busca", "").strip()
+            if not re.fullmatch(r"[\x21-\x7e]{8,512}", chave):
+                return _estado(request, "Cole somente a chave copiada do painel do Serper.dev, sem espaços.")
+            serper.testar_chave(chave)
+            IntegracaoGemini.objects.filter(pk=atual.pk).update(
+                busca_credencial=criptografar(request.workspace.pk, chave, "serper"),
+                busca_ultimo_teste=timezone.now(), busca_status="valida",
+            )
+            _auditar(request, "busca_conectada")
+            messages.success(request, "Busca no Google (Serper.dev) conectada para esta empresa.")
+        elif acao == "busca_testar":
+            try:
+                serper.testar_chave(descriptografar_busca(atual))
+            except IAIndisponivel as exc:
+                IntegracaoGemini.objects.filter(pk=atual.pk).update(
+                    busca_ultimo_teste=timezone.now(), busca_status=exc.codigo,
+                )
+                return _estado(request, str(exc))
+            IntegracaoGemini.objects.filter(pk=atual.pk).update(busca_ultimo_teste=timezone.now(), busca_status="valida")
+            messages.success(request, "A chave do Serper.dev está funcionando.")
+        else:
+            IntegracaoGemini.objects.filter(pk=atual.pk).update(
+                busca_credencial=None, busca_ultimo_teste=None, busca_status="",
+            )
+            _auditar(request, "busca_removida")
+            messages.success(request, "Busca no Google desconectada.")
+    except (IAIndisponivel, CredencialIndisponivel) as exc:
+        return _estado(request, str(exc))
+    return redirect("integracao_ia")
+
+
 @login_required
 @never_cache
 @require_http_methods(["GET", "POST"])
@@ -81,8 +126,13 @@ def integracao_ia(request):
         return HttpResponseForbidden("Use HTTPS para alterar esta integração fora do localhost.")
 
     acao = request.POST.get("acao")
-    if acao not in {"testar_nova", "salvar", "testar_salva", "remover", "web_on", "web_off", "limite"}:
+    if acao not in {
+        "testar_nova", "salvar", "testar_salva", "remover", "web_on", "web_off", "limite",
+        "busca_salvar", "busca_testar", "busca_remover",
+    }:
         return HttpResponseBadRequest("Ação de integração inválida.")
+    if acao.startswith("busca_"):
+        return _acao_busca(request, acao)
     chave = request.POST.get("chave", "").strip() if acao in {"testar_nova", "salvar"} else ""
     atual = IntegracaoGemini.objects.filter(workspace=request.workspace).defer("credencial").first()
     try:

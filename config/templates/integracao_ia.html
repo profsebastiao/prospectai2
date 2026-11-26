@@ -33,6 +33,22 @@
     {% endif %}
     {% endif %}
     {% endif %}
+    {% if pode_gerenciar and config and not credencial_antiga %}
+    <section class="record-form-actions" aria-labelledby="busca-google-titulo">
+        <h2 id="busca-google-titulo">Busca no Google (Serper.dev)</h2>
+        <p class="record-muted">Permite que a prospecção busque evidências no Google sozinha (resultados, Google Maps e o quadro da empresa). Cada consulta usa 1 crédito do Serper.dev; o cadastro gratuito traz créditos para começar. Limite desta empresa: {{ busca_limite }} buscas por dia.</p>
+        {% if busca %}
+        <p><span class="status-tag status-positive">Busca no Google conectada</span>{% if busca.busca_ultimo_teste %} · último teste {{ busca.busca_ultimo_teste|date:"d/m/Y H:i" }}{% if busca.busca_status != "valida" %} (falhou){% endif %}{% endif %}</p>
+        <form method="post" class="record-actions">{% csrf_token %}<button class="button secondary" type="submit" name="acao" value="busca_testar">Testar busca</button><button class="button quiet" type="submit" name="acao" value="busca_remover">Desconectar busca</button></form>
+        {% endif %}
+        <p><a href="https://serper.dev/api-keys" target="_blank" rel="noopener noreferrer">Criar conta ou copiar a chave no Serper.dev</a></p>
+        <form method="post" autocomplete="off">
+            {% csrf_token %}
+            <div class="record-field"><label for="chave-busca">{% if busca %}Nova chave do Serper.dev{% else %}Chave do Serper.dev{% endif %}</label><input id="chave-busca" type="password" name="chave_busca" maxlength="512" autocomplete="new-password" required></div>
+            <div class="record-actions record-form-actions"><button class="button primary" type="submit" name="acao" value="busca_salvar">Testar e salvar chave de busca</button></div>
+        </form>
+    </section>
+    {% endif %}
     <div class="record-actions record-form-actions"><a class="button secondary" href="{% url 'gestao_lista' 'leads' %}">{% if primeiro %}Configurar depois{% else %}Voltar a Leads{% endif %}</a></div>
 </section>
 {% endblock %}

@@ -164,3 +164,5 @@ OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/free")
 OPENROUTER_FALLBACK_MODELS = os.environ.get("OPENROUTER_FALLBACK_MODELS", "")
 IA_COMPANY_DAILY_LIMIT = os.environ.get("IA_COMPANY_DAILY_LIMIT", "10")
 IA_GLOBAL_DAILY_LIMIT = os.environ.get("IA_GLOBAL_DAILY_LIMIT", "100")
+# Buscas no Google (Serper.dev) por empresa por dia; cada consulta usa 1 crédito do Serper.
+SERPER_DAILY_LIMIT = os.environ.get("SERPER_DAILY_LIMIT", "30")
