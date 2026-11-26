@@ -6,6 +6,7 @@ A chave fica criptografada por empresa; nada aqui usa chave global.
 import json
 import logging
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
@@ -40,6 +41,21 @@ MODELO_INDISPONIVEL = (
     "ou escolha outro modelo liberado no Google AI Studio."
 )
 ACESSO_NEGADO = "O Google negou o acesso desta chave à API Gemini."
+PASSAGEIROS = {500, 502, 503, 504}
+ESPERAS = (2, 5)  # segundos entre novas tentativas em erros passageiros do Google
+
+
+def _abrir(requisicao):
+    """Envia a requisicao e tenta de novo (sem nova cota) quando o Google responde com erro passageiro."""
+    for espera in (*ESPERAS, None):
+        try:
+            with build_opener(EndpointFixo()).open(requisicao, timeout=90) as response:
+                return response.read(1_000_000)
+        except HTTPError as exc:
+            if exc.code not in PASSAGEIROS or espera is None:
+                raise
+            logger.warning("Gemini: http=%s nova tentativa em %ss", exc.code, espera)
+            time.sleep(espera)
 BLOQUEADA = "O Gemini bloqueou a resposta por segurança. Revise as evidências e tente novamente."
 
 
@@ -154,8 +170,7 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
     )
     reservar_chamada(workspace_id, limite)
     try:
-        with build_opener(EndpointFixo()).open(requisicao, timeout=60) as response:
-            bruto = response.read(1_000_000)
+        bruto = _abrir(requisicao)
         if chave.encode() in bruto:
             raise ValueError("secret echoed")
         resposta = json.loads(bruto)
@@ -181,17 +196,37 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
         raise IAIndisponivel(mensagem, codigo) from None
     except TimeoutError:
         logger.warning("Gemini: empresa=%s tipo=timeout", workspace_id)
-        raise IAIndisponivel(TEMPORARIA, "temporaria") from None
+        raise IAIndisponivel(
+            f"{TEMPORARIA} O Google não respondeu em 90 segundos.", "temporaria",
+        ) from None
     except URLError as exc:
         causa = getattr(exc, "reason", None)
-        logger.warning("Gemini: empresa=%s tipo=rede causa=%s", workspace_id, type(causa).__name__)
-        raise IAIndisponivel(TEMPORARIA, "temporaria") from None
+        descricao = _causa_rede(causa)
+        logger.warning("Gemini: empresa=%s tipo=rede causa=%s", workspace_id, descricao)
+        raise IAIndisponivel(f"{TEMPORARIA} Falha de conexão: {descricao}.", "rede") from None
     except OSError as exc:
-        logger.warning("Gemini: empresa=%s tipo=rede causa=%s", workspace_id, type(exc).__name__)
-        raise IAIndisponivel(TEMPORARIA, "temporaria") from None
+        descricao = _causa_rede(exc)
+        logger.warning("Gemini: empresa=%s tipo=rede causa=%s", workspace_id, descricao)
+        raise IAIndisponivel(f"{TEMPORARIA} Falha de conexão: {descricao}.", "rede") from None
     except (ValueError, KeyError, IndexError, AttributeError, TypeError):
         logger.warning("Gemini: empresa=%s tipo=resposta", workspace_id)
         raise IAIndisponivel("O Gemini devolveu uma resposta inválida ou incompleta.", "resposta") from None
+
+
+def _causa_rede(causa):
+    """Descricao curta do erro de rede, sem dados sensiveis."""
+    if causa is None:
+        return "desconhecida"
+    nome = type(causa).__name__
+    texto = str(causa)
+    if "CERTIFICATE_VERIFY_FAILED" in texto:
+        return "certificado SSL não verificado (antivírus ou proxy inspecionando HTTPS)"
+    if "getaddrinfo" in texto or nome == "gaierror":
+        return "não foi possível encontrar o servidor do Google (DNS ou internet)"
+    if "timed out" in texto.lower():
+        return "tempo de conexão esgotado"
+    errno = getattr(causa, "errno", None)
+    return f"{nome}" + (f" (código {errno})" if isinstance(errno, int) else "")
 
 
 def _erro_http(exc, web, chave=""):
@@ -229,7 +264,7 @@ def _erro_http(exc, web, chave=""):
     if exc.code == 404 or status == "NOT_FOUND":
         return "modelo", MODELO_INDISPONIVEL, detalhe
     if exc.code >= 500:
-        return "temporaria", TEMPORARIA, ""
+        return "temporaria", TEMPORARIA, detalhe
     if exc.code in {400, 422}:
         if web and ("tool" in texto or "search" in texto):
             return "web", WEB_INDISPONIVEL, detalhe

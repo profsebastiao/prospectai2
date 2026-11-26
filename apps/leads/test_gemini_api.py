@@ -187,3 +187,43 @@ class TelaIntegracaoGeminiTests(TestCase):
         resposta = self.client.post(reverse("integracao_ia"), {"acao": "salvar", "chave": "AIza-errada"}, secure=True)
         self.assertContains(resposta, "foi recusada")
         self.assertEqual(IntegracaoGemini.objects.get(workspace=self.ws).provedor, "groq")
+
+
+@override_settings(GEMINI_ENCRYPTION_KEYS=AES, GEMINI_MODEL="gemini-3.8-flash", IA_COMPANY_DAILY_LIMIT=5)
+class GeminiTentativasTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.ws = Workspace.objects.create(nome="Empresa R", slug="empresa-r")
+        IntegracaoGemini.objects.create(
+            workspace=cls.ws, provedor="gemini", credencial=criptografar(cls.ws.pk, CHAVE), limite_diario=5,
+        )
+
+    @patch("apps.leads.gemini.time.sleep")
+    @patch("apps.leads.gemini.build_opener")
+    def test_tenta_de_novo_quando_modelo_sobrecarregado(self, opener, dormir):
+        sobrecarga = HTTPError("https://x", 503, "x", {}, io.BytesIO(
+            b'{"error":{"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}'
+        ))
+        opener.return_value.open.side_effect = [sobrecarga, resposta_http(ok('{"ok": true}'))]
+        self.assertEqual(ia.gerar(self.ws.pk, "x", {}), {"ok": True})
+        self.assertEqual(dormir.call_count, 1)
+
+    @patch("apps.leads.gemini.time.sleep")
+    @patch("apps.leads.gemini.build_opener")
+    def test_mostra_motivo_quando_continua_indisponivel(self, opener, dormir):
+        def falhar(req, timeout=None):
+            raise HTTPError("https://x", 503, "x", {}, io.BytesIO(
+                b'{"error":{"message":"The model is overloaded. Please try again later.","status":"UNAVAILABLE"}}'
+            ))
+        opener.return_value.open.side_effect = falhar
+        with self.assertRaises(IAIndisponivel) as ctx:
+            ia.gerar(self.ws.pk, "x", {})
+        self.assertIn("overloaded", str(ctx.exception))
+        self.assertEqual(opener.return_value.open.call_count, 3)
+
+    @patch("apps.leads.gemini.build_opener")
+    def test_erro_de_certificado_explicado(self, opener):
+        from urllib.error import URLError
+        opener.return_value.open.side_effect = URLError(Exception("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"))
+        with self.assertRaisesMessage(IAIndisponivel, "certificado SSL"):
+            ia.gerar(self.ws.pk, "x", {})
