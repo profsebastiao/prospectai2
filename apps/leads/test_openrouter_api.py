@@ -110,7 +110,7 @@ class OpenRouterApiTests(TestCase):
         opener.return_value.open.return_value = resposta_http(
             {"choices": [{"finish_reason": "length", "message": {"content": '{"ok": tr'}}]}
         )
-        with self.assertRaisesMessage(IAIndisponivel, "inválida ou incompleta"):
+        with self.assertRaisesMessage(IAIndisponivel, "resposta cortada por tamanho"):
             ia.gerar(self.ws.pk, "x", {})
 
     @patch("apps.leads.openrouter.build_opener")
@@ -206,3 +206,36 @@ class TelaIntegracaoOpenRouterTests(TestCase):
         resposta = self.client.post(reverse("integracao_ia"), {"acao": "salvar", "chave": "sk-or-errada"}, secure=True)
         self.assertContains(resposta, "foi recusada")
         self.assertEqual(IntegracaoGemini.objects.get(workspace=self.ws).provedor, "groq")
+
+
+@override_settings(GEMINI_ENCRYPTION_KEYS=AES, OPENROUTER_MODEL="openrouter/free", OPENROUTER_FALLBACK_MODELS="",
+                   IA_COMPANY_DAILY_LIMIT=5)
+class OpenRouterTentativasTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.ws = Workspace.objects.create(nome="Empresa V", slug="empresa-v")
+        IntegracaoGemini.objects.create(
+            workspace=cls.ws, provedor="openrouter", credencial=criptografar(cls.ws.pk, CHAVE), limite_diario=5,
+        )
+
+    @patch("apps.leads.openrouter.build_opener")
+    def test_resposta_invalida_e_repetida_sem_gastar_limite(self, opener):
+        cortada = {"model": "x/modelo-a:free", "choices": [{"finish_reason": "length", "message": {"content": '{"ok": tr'}}]}
+        opener.return_value.open.side_effect = [resposta_http(cortada), resposta_http(ok("não sei")), resposta_http(ok('{"ok": true}'))]
+        self.assertEqual(ia.gerar(self.ws.pk, "x", {"a": 1}, schema={"type": "object"}), {"ok": True})
+        self.assertEqual(opener.return_value.open.call_count, 3)
+        from apps.leads.models import LimiteGemini
+        self.assertEqual(LimiteGemini.objects.get(escopo=f"ia:empresa:{self.ws.pk}").chamadas, 1)
+        corpo = json.loads(opener.return_value.open.call_args.args[0].data)
+        self.assertEqual(corpo["reasoning"], {"effort": "low", "exclude": True})
+        self.assertEqual(corpo["provider"], {"require_parameters": True})
+
+    @patch("apps.leads.openrouter.build_opener")
+    def test_tres_respostas_invalidas_explicam_o_motivo(self, opener):
+        sem_texto = {"model": "x/modelo-b:free", "choices": [{"finish_reason": "stop", "message": {"content": None}}]}
+        opener.return_value.open.side_effect = lambda req, timeout=None: resposta_http(sem_texto)
+        with self.assertRaises(IAIndisponivel) as ctx:
+            ia.gerar(self.ws.pk, "x", {})
+        self.assertIn("resposta sem texto", str(ctx.exception))
+        self.assertIn("x/modelo-b:free", str(ctx.exception))
+        self.assertEqual(opener.return_value.open.call_count, 3)

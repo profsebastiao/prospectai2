@@ -36,6 +36,14 @@ MODELO_INDISPONIVEL = (
     "Confira o nome do modelo em openrouter.ai/models."
 )
 BLOQUEADA = "O OpenRouter recusou o conteúdo (moderação ou permissão da chave)."
+TENTATIVAS = 3  # respostas inválidas são repetidas; no roteador gratuito cada tentativa pode usar outro modelo
+
+
+class RespostaInvalida(ValueError):
+    def __init__(self, motivo, modelo=""):
+        super().__init__(motivo)
+        self.motivo = motivo
+        self.modelo = modelo
 
 
 def _limpar_modelo(nome):
@@ -173,6 +181,12 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
         }
     if web:
         corpo["plugins"] = [{"id": "web", "max_results": 8}]
+    else:
+        # Modelos que "pensam" gastam menos tokens e não deixam a resposta cortada.
+        corpo["reasoning"] = {"effort": "low", "exclude": True}
+    if schema:
+        # Só usa provedores que aceitam o formato de resposta pedido.
+        corpo["provider"] = {"require_parameters": True}
     requisicao = Request(
         ENDPOINT,
         data=json.dumps(corpo, ensure_ascii=False).encode("utf-8"),
@@ -188,25 +202,22 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
     )
     reservar_chamada(workspace_id, limite)
     try:
-        with build_opener(EndpointFixo()).open(requisicao, timeout=timeout) as response:
-            bruto = response.read(2_000_000)
-        if chave.encode() in bruto:
-            raise ValueError("secret echoed")
-        resposta = json.loads(bruto)
-        if isinstance(resposta.get("error"), dict):
-            # Erros durante a geração podem chegar com HTTP 200.
-            codigo, mensagem, detalhe = _classificar(int(resposta["error"].get("code") or 500), resposta["error"], web, chave)
-            raise IAIndisponivel(f"{mensagem} Resposta do OpenRouter: {detalhe}" if detalhe else mensagem, codigo)
-        escolha = resposta["choices"][0]
-        motivo = escolha.get("finish_reason")
-        if motivo == "content_filter":
-            raise IAIndisponivel(BLOQUEADA, "bloqueada")
-        if motivo == "length":
-            raise ValueError("incomplete")
-        mensagem = escolha["message"]
-        if web:
-            return mensagem
-        return _json(mensagem.get("content"))
+        ultimo = None
+        for tentativa in range(1, TENTATIVAS + 1):
+            try:
+                return _uma_chamada(requisicao, timeout, web, chave)
+            except RespostaInvalida as exc:
+                ultimo = exc
+                logger.warning(
+                    "OpenRouter: empresa=%s tipo=resposta tentativa=%s modelo=%s motivo=%s",
+                    workspace_id, tentativa, exc.modelo or "-", exc.motivo,
+                )
+        modelo = f" Último modelo usado: {ultimo.modelo}." if ultimo and ultimo.modelo else ""
+        raise IAIndisponivel(
+            f"Os modelos gratuitos devolveram respostas inválidas em {TENTATIVAS} tentativas ({ultimo.motivo}).{modelo} "
+            "Tente de novo em alguns minutos ou configure um modelo específico em OPENROUTER_MODEL.",
+            "resposta",
+        )
     except HTTPError as exc:
         codigo, mensagem, detalhe = _erro_http(exc, web, chave)
         logger.warning("OpenRouter: empresa=%s tipo=%s http=%s detalhe=%s", workspace_id, codigo, exc.code, detalhe or "-")
@@ -226,6 +237,43 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
             "O modelo devolveu uma resposta inválida ou incompleta. Tente de novo; com o roteador gratuito, "
             "cada tentativa pode usar outro modelo.", "resposta",
         ) from None
+
+
+def _uma_chamada(requisicao, timeout, web, chave):
+    with build_opener(EndpointFixo()).open(requisicao, timeout=timeout) as response:
+        bruto = response.read(2_000_000)
+    if chave.encode() in bruto:
+        raise ValueError("secret echoed")
+    try:
+        resposta = json.loads(bruto)
+    except ValueError:
+        raise RespostaInvalida("resposta que não é JSON") from None
+    modelo = str(resposta.get("model") or "")[:80] if isinstance(resposta, dict) else ""
+    if isinstance(resposta.get("error"), dict):
+        # Erros durante a geração podem chegar com HTTP 200.
+        codigo, mensagem, detalhe = _classificar(int(resposta["error"].get("code") or 500), resposta["error"], web, chave)
+        if codigo == "temporaria":
+            raise RespostaInvalida(f"erro do provedor: {detalhe or mensagem}"[:160], modelo)
+        raise IAIndisponivel(f"{mensagem} Resposta do OpenRouter: {detalhe}" if detalhe else mensagem, codigo)
+    escolhas = resposta.get("choices") or []
+    if not escolhas or not isinstance(escolhas[0], dict):
+        raise RespostaInvalida("resposta vazia", modelo)
+    escolha = escolhas[0]
+    motivo = escolha.get("finish_reason")
+    if motivo == "content_filter":
+        raise IAIndisponivel(BLOQUEADA, "bloqueada")
+    if motivo == "length":
+        raise RespostaInvalida("resposta cortada por tamanho", modelo)
+    mensagem = escolha.get("message") or {}
+    if web:
+        return mensagem
+    conteudo = mensagem.get("content")
+    if not conteudo:
+        raise RespostaInvalida("resposta sem texto", modelo)
+    try:
+        return _json(conteudo)
+    except (ValueError, TypeError):
+        raise RespostaInvalida("texto fora do formato JSON", modelo) from None
 
 
 def _classificar(status, erro, web, chave):
