@@ -138,7 +138,7 @@ class WorkspaceMiddleware:
         )
         if financeiro and not pode_financeiro(request):
             raise PermissionDenied
-        if rota == "integracao_groq":
+        if rota == "integracao_ia":
             return None  # a propria tela confere quem gerencia a integracao
         if not pode_editar(request) and (
             request.method not in METODOS_SEGUROS or rota in ROTAS_DE_CRIACAO

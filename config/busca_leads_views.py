@@ -9,7 +9,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from apps.accounts.access import scope_form
-from apps.accounts.gemini_credentials import pode_gerenciar_groq, status_groq
+from apps.accounts.gemini_credentials import pode_gerenciar_ia, status_ia
 from apps.leads.busca_web import BuscaIndisponivel, buscar, candidatos
 from apps.leads.models import Lead
 from apps.leads.perfis import RedeSocial, handle, profile_identity, web_url
@@ -111,8 +111,8 @@ def buscar_leads_web(request):
     form = BuscaLeadForm(request.POST if request.method == "POST" else None)
     context = {
         "form": form,
-        "groq_conectado": status_groq(request.workspace.pk) is not None,
-        "pode_gerenciar_groq": pode_gerenciar_groq(request.user, request.workspace),
+        "ia_conectada": status_ia(request.workspace.pk) is not None,
+        "pode_gerenciar_ia": pode_gerenciar_ia(request.user, request.workspace),
     }
     if form.is_bound and form.is_valid():
         dados = form.cleaned_data

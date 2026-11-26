@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Integração Gemini | ProspectAI{% endblock %}
+{% block heading %}{% if primeiro %}Conectar Gemini{% else %}Integrações · Gemini{% endif %}{% endblock %}
+{% block breadcrumb %}<nav class="record-breadcrumb" aria-label="Localização"><a href="{% url 'configuracoes' %}">Configurações</a></nav>{% endblock %}
+{% block content %}
+{% include "record_feedback.html" %}
+<section class="panel record-form">
+    <h2>{{ request.workspace.nome }}</h2>
+    {% if config and not credencial_antiga %}
+    <p><span class="status-tag status-positive">Credencial Gemini salva</span> · {{ modelo }}</p>
+    {% if config.ultimo_teste %}<p class="record-muted">Último teste: {{ config.ultimo_teste|date:"d/m/Y H:i" }} — {% if config.status_teste == "valida" %}Acesso ao modelo confirmado{% elif config.status_teste == "credencial" %}Chave recusada{% elif config.status_teste == "limite" %}Limite atingido{% elif config.status_teste == "modelo" %}Modelo indisponível{% elif config.status_teste == "acesso_negado" %}Acesso negado{% else %}Teste sem confirmação{% endif %}.</p>{% endif %}
+    <p class="record-muted">Busca no Google: {% if web_habilitada %}habilitada{% else %}desativada{% endif %}.</p>
+    {% elif credencial_antiga %}
+    <p class="record-notice" role="status">Esta empresa tem uma credencial antiga que não é mais usada. Cole uma chave do Gemini abaixo e clique em <strong>Testar e substituir</strong> para voltar a usar a prospecção com IA.</p>
+    {% else %}<p>Conecte o Gemini para usar a prospecção com IA. O CRM manual continua disponível.</p>{% endif %}
+    {% if aviso %}<p class="{% if sucesso %}record-notice record-notice-success{% else %}record-form-error{% endif %}" role="status">{{ aviso }}</p>{% endif %}
+    {% if pode_gerenciar %}
+    <p><a href="{{ ia.console_url }}" target="_blank" rel="noopener noreferrer">Criar ou gerenciar chave no Google AI Studio</a></p>
+    <form method="post" autocomplete="off">
+        {% csrf_token %}
+        <div class="record-field"><label for="ia-chave">{% if config %}Nova chave do Gemini{% else %}Chave do Gemini{% endif %}</label><input id="ia-chave" type="password" name="chave" maxlength="4096" autocomplete="new-password" required></div>
+        <p class="record-muted">O teste usa uma solicitação curta ao modelo {{ ia.modelo }}, sem dados do CRM. A credencial é exclusiva desta empresa e fica criptografada no servidor.</p>
+        <div class="record-actions record-form-actions"><button class="button secondary" type="submit" name="acao" value="testar_nova">Testar chave</button><button class="button primary" type="submit" name="acao" value="salvar">{% if config %}Testar e substituir{% else %}Testar e salvar{% endif %}</button></div>
+    </form>
+    {% if config %}
+    <form method="post" class="record-actions record-form-actions">{% csrf_token %}{% if not credencial_antiga %}<button class="button secondary" type="submit" name="acao" value="testar_salva">Testar conexão salva</button>{% endif %}<button class="button quiet" type="submit" name="acao" value="remover">Remover credencial</button></form>
+    {% if not credencial_antiga %}
+    <form method="post" class="record-form-actions">{% csrf_token %}<div class="record-field"><label for="ia-limite">Limite diário de chamadas desta empresa</label><input id="ia-limite" name="limite" type="number" min="1" max="{{ limite_global }}" value="{{ config.limite_diario }}" required></div><button class="button secondary" type="submit" name="acao" value="limite">Salvar limite</button></form>
+    <form method="post" class="record-form-actions">{% csrf_token %}<h2>Busca no Google</h2><p class="record-muted">O Gemini pesquisa no Google e traz as fontes automaticamente. Fica desativada por padrão; eventuais custos ou cotas são definidos no seu projeto do Google AI Studio. O ProspectAI não altera faturamento.</p>
+        {% if web_habilitada %}<button class="button secondary" type="submit" name="acao" value="web_off">Desativar busca no Google</button>
+        {% elif busca_web_disponivel %}<div class="record-field"><label><input type="checkbox" name="autorizar_web" value="1" required> Autorizo testar e habilitar a busca no Google para esta empresa.</label></div><button class="button secondary" type="submit" name="acao" value="web_on">Testar acesso e habilitar</button>
+        {% else %}<p class="record-muted">O modelo configurado não oferece busca no Google. Use evidências manuais ou configure outro modelo Gemini.</p>{% endif %}</form>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+    <div class="record-actions record-form-actions"><a class="button secondary" href="{% url 'gestao_lista' 'leads' %}">{% if primeiro %}Configurar depois{% else %}Voltar a Leads{% endif %}</a></div>
+</section>
+{% endblock %}

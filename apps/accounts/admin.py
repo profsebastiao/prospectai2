@@ -28,7 +28,7 @@ class WorkspaceAdmin(admin.ModelAdmin):
             and workspaces_for(request.user).filter(pk=obj.pk).exists()
         ):
             request.session["workspace_id"] = obj.pk
-            return redirect(reverse("integracao_groq") + "?primeiro=1")
+            return redirect(reverse("integracao_ia") + "?primeiro=1")
         return response
 
 

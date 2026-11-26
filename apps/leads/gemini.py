@@ -1,6 +1,6 @@
 """Cliente da API Gemini (Google AI Studio) para a prospecção com IA.
 
-Mesma interface do cliente Groq: gerar(), testar_chave() e pesquisar_gemini().
+Funções: gerar(), testar_chave() e pesquisar_gemini().
 A chave fica criptografada por empresa; nada aqui usa chave global.
 """
 import json
@@ -17,8 +17,8 @@ from django.views.decorators.debug import sensitive_variables
 from apps.accounts.gemini_credentials import CredencialIndisponivel, descriptografar
 from apps.accounts.models import IntegracaoGemini
 
-from .groq import (
-    BLOQUEIO_REDE, EndpointFixo, IAIndisponivel, USER_AGENT, _detalhe_seguro, limite_padrao, reservar_chamada,
+from .ia_comum import (
+    BLOQUEIO_REDE, USER_AGENT, EndpointFixo, IAIndisponivel, detalhe_seguro, limite_padrao, reservar_chamada,
 )
 from .perfis import web_url
 
@@ -209,14 +209,14 @@ def _erro_http(exc, web, chave=""):
         erro = None
     if erro is None:
         if exc.code == 403:
-            return "bloqueio_rede", BLOQUEIO_REDE, _detalhe_seguro(bruto, chave)
+            return "bloqueio_rede", BLOQUEIO_REDE, detalhe_seguro(bruto, chave)
         erro = {}
     mensagem = str(erro.get("message", ""))
     status = str(erro.get("status", "")).upper()
     motivos = " ".join(
         str(item.get("reason", "")) for item in erro.get("details", []) or [] if isinstance(item, dict)
     ).upper()
-    detalhe = _detalhe_seguro(mensagem or status, chave)
+    detalhe = detalhe_seguro(mensagem or status, chave)
     texto = mensagem.lower()
     if "API_KEY_INVALID" in motivos or "api key not valid" in texto or "API_KEY" in motivos and exc.code == 400:
         return "credencial", CHAVE_RECUSADA, ""

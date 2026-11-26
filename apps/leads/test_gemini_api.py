@@ -12,7 +12,7 @@ from django.urls import reverse
 from apps.accounts.gemini_credentials import criptografar, descriptografar
 from apps.accounts.models import IntegracaoGemini, Workspace, WorkspaceMembership
 from apps.leads import ia
-from apps.leads.groq import IAIndisponivel
+from apps.leads.ia_comum import IAIndisponivel
 
 CHAVE = "AIza-fixture-gemini-empresa"
 AES = base64.urlsafe_b64encode(b"g" * 32).decode()
@@ -32,7 +32,7 @@ def ok(texto, **extra):
     return {"candidates": [candidato]}
 
 
-@override_settings(GEMINI_ENCRYPTION_KEYS=AES, GEMINI_MODEL="gemini-3.8-flash", GROQ_COMPANY_DAILY_LIMIT=5)
+@override_settings(GEMINI_ENCRYPTION_KEYS=AES, GEMINI_MODEL="gemini-3.8-flash", IA_COMPANY_DAILY_LIMIT=5)
 class GeminiApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -120,21 +120,36 @@ class GeminiApiTests(TestCase):
         with self.assertRaises(IAIndisponivel):
             ia.pesquisar("café", self.ws.pk)
 
-    @patch("apps.leads.groq.build_opener")
     @patch("apps.leads.gemini.build_opener")
-    def test_empresa_com_chave_groq_continua_na_groq(self, gemini_opener, groq_opener):
+    def test_credencial_antiga_nao_e_usada(self, opener):
         outra = Workspace.objects.create(nome="Empresa Q", slug="empresa-q")
         IntegracaoGemini.objects.create(
             workspace=outra, provedor="groq", credencial=criptografar(outra.pk, "gsk_fixture"), limite_diario=5,
         )
-        groq_opener.return_value.open.return_value = resposta_http(
-            {"choices": [{"finish_reason": "stop", "message": {"content": "{\"ok\": true}"}}]}
-        )
-        self.assertEqual(ia.gerar(outra.pk, "x", {}), {"ok": True})
-        gemini_opener.assert_not_called()
+        with self.assertRaisesMessage(IAIndisponivel, "Conecte o Gemini"):
+            ia.gerar(outra.pk, "x", {})
+        opener.assert_not_called()
+
+    @patch("apps.leads.gemini.build_opener")
+    def test_limite_diario_por_empresa(self, opener):
+        IntegracaoGemini.objects.filter(pk=self.integracao.pk).update(limite_diario=2)
+        opener.return_value.open.return_value = resposta_http(ok('{"ok": true}'))
+        ia.gerar(self.ws.pk, "x", {})
+        ia.gerar(self.ws.pk, "x", {})
+        with self.assertRaisesMessage(IAIndisponivel, "limite diário"):
+            ia.gerar(self.ws.pk, "x", {})
+        self.assertEqual(opener.return_value.open.call_count, 2)
+
+    @patch("apps.leads.gemini.build_opener")
+    def test_timeout_nao_expoe_detalhes(self, opener):
+        opener.return_value.open.side_effect = TimeoutError("nao registrar segredo")
+        with self.assertLogs("apps.leads.gemini", level="WARNING") as logs:
+            with self.assertRaisesMessage(IAIndisponivel, "temporariamente"):
+                ia.gerar(self.ws.pk, "x", {})
+        self.assertNotIn("nao registrar segredo", " ".join(logs.output))
 
 
-@override_settings(GEMINI_ENCRYPTION_KEYS=AES, GEMINI_MODEL="gemini-3.8-flash", IA_PROVEDOR="gemini")
+@override_settings(GEMINI_ENCRYPTION_KEYS=AES, GEMINI_MODEL="gemini-3.8-flash")
 class TelaIntegracaoGeminiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -150,11 +165,11 @@ class TelaIntegracaoGeminiTests(TestCase):
         IntegracaoGemini.objects.create(
             workspace=self.ws, provedor="groq", credencial=criptografar(self.ws.pk, "gsk_antiga"), limite_diario=7,
         )
-        tela = self.client.get(reverse("integracao_groq"))
-        self.assertContains(tela, "ainda usa a chave Groq")
+        tela = self.client.get(reverse("integracao_ia"))
+        self.assertContains(tela, "credencial antiga que não é mais usada")
         self.assertContains(tela, "aistudio.google.com")
         opener.return_value.open.return_value = resposta_http(ok('{"ok": true}'))
-        resposta = self.client.post(reverse("integracao_groq"), {"acao": "salvar", "chave": CHAVE}, follow=True, secure=True)
+        resposta = self.client.post(reverse("integracao_ia"), {"acao": "salvar", "chave": CHAVE}, follow=True, secure=True)
         self.assertContains(resposta, "Gemini conectado")
         integracao = IntegracaoGemini.objects.get(workspace=self.ws)
         self.assertEqual(integracao.provedor, "gemini")
@@ -169,6 +184,6 @@ class TelaIntegracaoGeminiTests(TestCase):
         opener.return_value.open.side_effect = HTTPError("https://x", 400, "x", {}, io.BytesIO(
             b'{"error":{"message":"API key not valid.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}'
         ))
-        resposta = self.client.post(reverse("integracao_groq"), {"acao": "salvar", "chave": "AIza-errada"}, secure=True)
+        resposta = self.client.post(reverse("integracao_ia"), {"acao": "salvar", "chave": "AIza-errada"}, secure=True)
         self.assertContains(resposta, "foi recusada")
         self.assertEqual(IntegracaoGemini.objects.get(workspace=self.ws).provedor, "groq")

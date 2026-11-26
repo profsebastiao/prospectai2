@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods
 
 from apps.accounts.access import scoped_queryset
 from apps.accounts.models import Workspace
-from apps.accounts.gemini_credentials import pode_gerenciar_groq, status_groq, web_habilitada
+from apps.accounts.gemini_credentials import pode_gerenciar_ia, status_ia, web_habilitada
 from apps.leads.ia import SEM_CHAVE, WEB_INDISPONIVEL
 from apps.leads.models import AnaliseProspeccao, Lead, PesquisaProspeccao, RelatorioProspeccao
 from apps.leads.perfis import instagram_handle, profile_identity
@@ -196,16 +196,16 @@ def iniciar(request, modo):
 
     sugestoes = []
     aviso = ""
-    config_groq = status_groq(request.workspace.pk)
-    usa_web = web_habilitada(config_groq)
+    config_ia = status_ia(request.workspace.pk)
+    usa_web = web_habilitada(config_ia)
 
     def pagina():
         return render(request, "prospeccao_inicio.html", {
             "oportunidades": oportunidades, "criterios": criterios, "identidade": identidade,
             "sem_servicos": not criterios.fields["servicos"].queryset.exists(),
             "evidencias": evidencias, "sugestoes": sugestoes, "aviso": aviso,
-            "web_habilitada": usa_web, "groq_conectado": config_groq is not None,
-            "pode_gerenciar_groq": pode_gerenciar_groq(request.user, request.workspace),
+            "web_habilitada": usa_web, "ia_conectada": config_ia is not None,
+            "pode_gerenciar_ia": pode_gerenciar_ia(request.user, request.workspace),
         })
     if data is not None:
         acao = request.POST.get("acao", "manual")
@@ -221,7 +221,7 @@ def iniciar(request, modo):
                 except IAIndisponivel as exc:
                     aviso = str(exc)
             elif acao == "web" and not usa_web:
-                aviso = SEM_CHAVE if not config_groq else WEB_INDISPONIVEL
+                aviso = SEM_CHAVE if not config_ia else WEB_INDISPONIVEL
             else:
                 if acao == "manual":
                     itens = _evidencias_manuais(evidencias) if evidencias.is_valid() else []

@@ -16,7 +16,7 @@ from config.detalhes_views import (
 )
 from config.financeiro_views import financeiro
 from config.gestao_views import gestao_editar, gestao_lista, gestao_novo
-from config.groq_integracao_views import integracao_groq
+from config.ia_integracao_views import integracao_ia
 from config.kanban_views import kanban
 from config.mensalidades_views import gerar_mensalidades_pagina
 from config.portal_views import (
@@ -65,11 +65,16 @@ urlpatterns = [
 
     # Empresa ativa, integrações e autenticação
     path("espacos/", workspace_select, name="workspace_select"),
-    path("configuracoes/integracoes/groq/", integracao_groq, name="integracao_groq"),
+    path("configuracoes/integracoes/ia/", integracao_ia, name="integracao_ia"),
+    # Endereços antigos continuam funcionando.
     path(
         "configuracoes/integracoes/gemini/",
-        RedirectView.as_view(pattern_name="integracao_groq", permanent=False),
+        RedirectView.as_view(pattern_name="integracao_ia", permanent=False),
         name="integracao_gemini",
+    ),
+    path(
+        "configuracoes/integracoes/groq/",
+        RedirectView.as_view(pattern_name="integracao_ia", permanent=False),
     ),
     path(
         "login/",

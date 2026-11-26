@@ -1,4 +1,4 @@
 {% if fonte.url %}<a href="{{ fonte.url }}" target="_blank" rel="noopener noreferrer">{{ fonte.url }}</a>{% else %}<span class="record-muted">Trecho fornecido, sem link.</span>{% endif %}
-{% if fonte.origem == "manual" %}<span class="record-muted">Fonte informada pelo usuário.</span>{% elif fonte.origem == "groq" %}<span class="record-muted">Referência retornada pela busca web da Groq.</span>{% elif fonte.origem == "gemini" %}<span class="record-muted">Referência retornada pela busca no Google do Gemini.</span>{% endif %}
+{% if fonte.origem == "manual" %}<span class="record-muted">Fonte informada pelo usuário.</span>{% elif fonte.origem == "groq" %}<span class="record-muted">Referência retornada por uma busca web anterior.</span>{% elif fonte.origem == "gemini" %}<span class="record-muted">Referência retornada pela busca no Google do Gemini.</span>{% endif %}
 {% if fonte.publicacao %}<span class="record-muted">Publicado em <time datetime="{{ fonte.publicacao }}">{{ fonte.publicacao }}</time></span>{% endif %}
 {% if fonte.restrita %}<span class="status-tag status-today">Acesso indisponível ou restrito segundo a fonte</span>{% endif %}

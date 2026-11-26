@@ -53,7 +53,7 @@ def descriptografar(integracao):
     )
 
 
-def pode_gerenciar_groq(user, workspace):
+def pode_gerenciar_ia(user, workspace):
     if not workspace or not user.is_authenticated or not user.is_active:
         return False
     return user.is_superuser or WorkspaceMembership.objects.filter(
@@ -61,8 +61,8 @@ def pode_gerenciar_groq(user, workspace):
     ).exists()
 
 
-def status_groq(workspace_id):
-    # Do not fetch or pass ciphertext to a template. Vale para qualquer provedor (Gemini ou Groq).
+def status_ia(workspace_id):
+    # Do not fetch or pass ciphertext to a template.
     return IntegracaoGemini.objects.filter(workspace_id=workspace_id).values(
         "provedor", "ultimo_teste", "status_teste", "pesquisa_web", "modelo_pesquisa", "limite_diario",
     ).first()
