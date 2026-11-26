@@ -329,8 +329,9 @@ def canais(candidato, fontes):
     ]
 
 
-def analisar_candidato(candidato, fontes, criterios, destinatario, *, workspace_id):
-    fontes = fontes_confirmadas(candidato, fontes)
+def analisar_candidato(candidato, fontes, criterios, destinatario, *, workspace_id, todas=False):
+    # todas=True: o usuário indicou que todas as evidências são da mesma empresa.
+    fontes = [f for f in fontes if not f.get("restrita")] if todas else fontes_confirmadas(candidato, fontes)
     inventario = canais(candidato, fontes)
     diagnostico = diagnosticar(candidato, fontes, criterios.get("servicos"), criterios.get("cidade") or criterios.get("regiao", ""))
     # The model receives only the confirmed sources and the selected services.

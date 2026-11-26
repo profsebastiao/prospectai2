@@ -476,8 +476,65 @@ def pesquisa(request, pk):
     })
 
 
+PREFIXOS_NOME = re.compile(
+    r"^(?:perfil|instagram|facebook|site|p[aá]gina|post(?:s)?(?: do instagram)?(?: de promo[cç][aã]o)?)\s+(?:d[aeo]s?\s+)?",
+    re.I,
+)
+
+
+def _nome_empresa(fontes):
+    for fonte in fontes:
+        titulo = (fonte.get("title") or "").strip()
+        if titulo:
+            return PREFIXOS_NOME.sub("", titulo).strip(" –-:") or titulo
+    return nome_da_fonte(fontes[0], "Empresa pesquisada") if fontes else "Empresa pesquisada"
+
+
+def _relatorio_todas(request, registro):
+    """Um único relatório usando todas as evidências da consulta (mesma empresa)."""
+    fontes = [f for f in registro.fontes if not f.get("restrita")]
+    if not fontes:
+        return HttpResponseBadRequest("Esta consulta não tem evidências.")
+    nome = _nome_empresa(fontes)
+    cidade = registro.criterios.get("regiao", "")
+    candidato = {
+        "fonte": next((f["url"] for f in fontes if f["url"]), ""), "nome": nome, "titulo": nome,
+        "descricao": "\n".join(f["content"] for f in fontes), "cidade": cidade,
+        "perfis": [], "principal": None, "links": [], "email": "", "telefone": "", "whatsapp": "",
+    }
+    chave = _chave("relatorio-todas", len(fontes))
+    anteriores = scoped_queryset(request, AnaliseProspeccao).filter(pesquisa=registro, chave=chave)
+    existente = anteriores.first()
+    if existente and not existente.dados.get("aviso"):
+        return redirect("prospeccao_analise", pk=existente.pk)
+    criterios = {**registro.criterios, "cidade": cidade}
+    try:
+        dados = analisar_candidato(
+            candidato, registro.fontes, criterios, "", workspace_id=request.workspace.pk, todas=True,
+        )
+    except IAIndisponivel as exc:
+        dados = {
+            "aviso": f"{exc} O diagnóstico de presença digital abaixo foi feito sem a IA.",
+            "fontes": fontes, "canais": canais(candidato, fontes),
+            "diagnostico": diagnosticar(candidato, fontes, registro.criterios.get("servicos"), cidade),
+            "achados": [], "recomendacoes": [],
+            "limitacao": "A análise está limitada às evidências fornecidas; links informados não foram abertos.",
+        }
+    if existente:
+        anteriores.update(dados=dados)
+        analise = existente
+    else:
+        analise, _ = AnaliseProspeccao.objects.get_or_create(
+            pesquisa=registro, chave=chave,
+            defaults={"candidato": 0, "dados": dados, "nome_lead": nome[:200]},
+        )
+    return redirect("prospeccao_analise", pk=analise.pk)
+
+
 def _relatorio_oportunidade(request, registro):
     """Gera (ou reabre) o diagnóstico e o relatório da empresa de uma oportunidade."""
+    if request.POST.get("relatorio") == "todas":
+        return _relatorio_todas(request, registro)
     indice = _indice(request.POST.get("relatorio", ""), len(registro.resultados))
     if indice is None:
         return HttpResponseBadRequest("Selecione uma oportunidade desta pesquisa.")

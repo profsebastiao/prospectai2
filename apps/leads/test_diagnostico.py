@@ -136,3 +136,46 @@ class DiagnosticoLinktreeTests(TestCase):
         situacao = {c["codigo"]: c["situacao"] for c in d["canais"]}
         self.assertEqual(situacao["whatsapp"], "encontrado")
         self.assertEqual(situacao["instagram"], "encontrado")
+
+
+class RelatorioTodasEvidenciasTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user("gestor-t", password="senha-de-teste-123")
+        cls.ws = Workspace.objects.create(nome="SdevBR", slug="sdevbr-t")
+        WorkspaceMembership.objects.create(workspace=cls.ws, usuario=cls.user, papel="gestor")
+        f1 = {"id": 1, "url": "https://instagram.com/oticavirtuosa_", "title": "Instagram da Ótica Virtuosa",
+              "content": "Exames, lentes, óculos e armações. João Pessoa-PB. Link na bio: wa.link/bgsec1",
+              "origem": "manual", "restrita": False, "publicacao": ""}
+        f2 = {"id": 2, "url": "", "title": "",
+              "content": "Ótica Virtuosa – (83) 98875-4300 – Av. Visconde de Pelotas, 162 – Centro – João Pessoa",
+              "origem": "manual", "restrita": False, "publicacao": ""}
+        cls.pesquisa = PesquisaProspeccao.objects.create(
+            workspace=cls.ws, modo="oportunidades", consulta="João Pessoa - PB", chave="teste-todas",
+            criterios={"empresa": "SdevBR", "regiao": "João Pessoa - PB", "servicos": SERVICOS}, fontes=[f1, f2],
+            resultados=[
+                {"tipo": "cliente", "classificacao": "Possível cliente", "nome": "Ótica", "fonte": f2, "servico": "Landing Page",
+                 "regiao": "", "compatibilidade": 1, "evidencia": "", "texto": ""},
+                {"tipo": "parceiro", "classificacao": "Possível parceiro", "nome": "Instagram da Ótica Virtuosa", "fonte": f1,
+                 "servico": "Instagram", "regiao": "", "compatibilidade": 1, "evidencia": "", "texto": ""},
+            ],
+        )
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    @patch("apps.leads.prospeccao.analisar_ia", return_value={"achados": [], "recomendacoes": []})
+    def test_relatorio_unico_junta_todas_as_evidencias(self, ia):
+        url = reverse("prospeccao_pesquisa", args=[self.pesquisa.pk])
+        self.assertContains(self.client.get(url), "Gerar relatório único com todas as evidências")
+        self.client.post(url, {"relatorio": "todas"})
+        analise = AnaliseProspeccao.objects.get(pesquisa=self.pesquisa)
+        self.assertEqual(analise.nome_lead, "Ótica Virtuosa")
+        d = analise.dados["diagnostico"]
+        situacao = {c["codigo"]: c["situacao"] for c in d["canais"]}
+        self.assertEqual(situacao["instagram"], "encontrado")
+        self.assertEqual(situacao["whatsapp"], "encontrado")
+        self.assertIn("(83) 98875-4300", d["empresa"]["telefones"])
+        self.assertTrue(d["empresa"]["enderecos"])
+        self.assertEqual(len(analise.dados["fontes"]), 2)
+        self.assertEqual(len(ia.call_args.args[2]), 2)

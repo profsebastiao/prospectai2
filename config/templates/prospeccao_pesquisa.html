@@ -18,6 +18,13 @@
 {% if pesquisa.resultados %}
 <form method="post" class="prospecting-results">
     {% csrf_token %}
+    {% if oportunidades and perm_editar and pesquisa.fontes|length > 1 %}
+    <section class="panel prospecting-summary">
+        <h2>Todas as evidências são da mesma empresa?</h2>
+        <p class="record-muted">Nesta tela cada evidência é tratada como uma empresa diferente. Se você colou várias evidências do mesmo negócio (perfil, posts, Linktree, Google), gere um relatório único com todas elas.</p>
+        <button class="button primary" type="submit" name="relatorio" value="todas" data-aguarde="Gerando relatório…">Gerar relatório único com todas as evidências</button>
+    </section>
+    {% endif %}
     {% for item in pesquisa.resultados %}
     <article class="panel prospecting-card">
         {% if oportunidades %}
