@@ -29,6 +29,7 @@ CANAIS = [
     ("youtube", "YouTube"),
     ("linkedin", "LinkedIn"),
 ]
+ENCURTADORES_WHATSAPP = {"wa.link", "walink.co", "wa.me", "api.whatsapp.com", "whatsapp.com", "chat.whatsapp.com"}
 ESSENCIAIS = ("instagram", "facebook", "whatsapp", "google", "site", "landing")
 
 PERDAS = {
@@ -123,6 +124,7 @@ def diagnosticar(candidato, fontes, servicos=(), cidade=""):
     urls += [candidato.get("fonte") or ""]
     urls += [p.get("url", "") for p in candidato.get("perfis", [])]
     urls += [match[0].rstrip(".,;:!?)") for match in URLS.finditer(texto)]
+    urls += ["https://" + m[0] for m in re.finditer(r"(?<![\w/.])(?:wa\.link|wa\.me|linktr\.ee)/[\w.\-]+", texto)]
     for bruto in urls:
         url = web_url(bruto) if bruto else ""
         if not url:
@@ -133,6 +135,8 @@ def diagnosticar(candidato, fontes, servicos=(), cidade=""):
             adicionar(str(rede), f"@{usuario}" if usuario else canonico, canonico)
         elif _telefone_whatsapp(url):
             adicionar("whatsapp", _telefone_whatsapp(url), url)
+        elif domain(url) in ENCURTADORES_WHATSAPP:
+            adicionar("whatsapp", "Link de WhatsApp", url)
         elif _google_maps(url):
             adicionar("google", "Perfil no Google Maps", url)
         elif domain(url) in LINK_PAGES:

@@ -128,3 +128,11 @@ class DiagnosticoLinktreeTests(TestCase):
         self.assertEqual(situacao["google"], "encontrado")
         self.assertEqual(situacao["site"], "nao")
         self.assertEqual({p["codigo"] for p in d["perdas"]}, {"facebook", "site", "landing"})
+
+
+    def test_wa_link_conta_como_whatsapp(self):
+        texto = "ÓTICA VIRTUOSA | ÓTICA EM JOÃO PESSOA. Exames, lentes, óculos e armações. Entre em contato conosco. wa.link/bgsec1"
+        d = diagnosticar(candidato_manual(texto), [fonte(texto, url="https://www.instagram.com/oticavirtuosa_/")], SERVICOS)
+        situacao = {c["codigo"]: c["situacao"] for c in d["canais"]}
+        self.assertEqual(situacao["whatsapp"], "encontrado")
+        self.assertEqual(situacao["instagram"], "encontrado")
