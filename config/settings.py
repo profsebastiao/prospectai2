@@ -88,6 +88,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'apps.accounts.access.permissoes',
+                'apps.leads.ia.contexto',
             ],
         },
     },
@@ -157,6 +158,8 @@ LOGOUT_REDIRECT_URL = '/login/'
 
 # Prospecção. O ambiente do processo Django fornece as credenciais.
 GEMINI_ENCRYPTION_KEYS = os.environ.get("GEMINI_ENCRYPTION_KEYS", "")
+IA_PROVEDOR = os.environ.get("IA_PROVEDOR", "gemini")  # provedor das chaves novas: gemini ou groq
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 GROQ_COMPANY_DAILY_LIMIT = os.environ.get("GROQ_COMPANY_DAILY_LIMIT", "10")
 GROQ_GLOBAL_DAILY_LIMIT = os.environ.get("GROQ_GLOBAL_DAILY_LIMIT", "100")

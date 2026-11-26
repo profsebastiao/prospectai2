@@ -1,3 +1,3 @@
 # Prospecção com IA
 
-A integração Gemini foi substituída pela API Groq oficial, com credencial individual por empresa. Consulte [CONFIGURACAO_GROQ.md](CONFIGURACAO_GROQ.md) para instruções atualizadas.
+O provedor padrão é o Gemini, com credencial individual por empresa. Veja [CONFIGURACAO_GEMINI.md](CONFIGURACAO_GEMINI.md). A Groq continua disponível: [CONFIGURACAO_GROQ.md](CONFIGURACAO_GROQ.md).

@@ -62,15 +62,12 @@ def pode_gerenciar_groq(user, workspace):
 
 
 def status_groq(workspace_id):
-    # Do not fetch or pass ciphertext to a template.
-    return IntegracaoGemini.objects.filter(workspace_id=workspace_id, provedor="groq").values(
+    # Do not fetch or pass ciphertext to a template. Vale para qualquer provedor (Gemini ou Groq).
+    return IntegracaoGemini.objects.filter(workspace_id=workspace_id).values(
         "provedor", "ultimo_teste", "status_teste", "pesquisa_web", "modelo_pesquisa", "limite_diario",
     ).first()
 
 
 def web_habilitada(config):
-    return bool(
-        config and config.get("provedor") == "groq" and config["pesquisa_web"]
-        and config["modelo_pesquisa"] == settings.GROQ_MODEL
-        and settings.GROQ_MODEL in {"openai/gpt-oss-20b", "openai/gpt-oss-120b"}
-    )
+    from apps.leads.ia import web_habilitada as habilitada  # import tardio evita ciclo
+    return habilitada(config)

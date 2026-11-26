@@ -1,33 +1,35 @@
 {% extends "base.html" %}
-{% block title %}Integração Groq | ProspectAI{% endblock %}
-{% block heading %}{% if primeiro %}Conectar Groq{% else %}Integrações · Groq{% endif %}{% endblock %}
+{% block title %}Integração {{ novo.nome }} | ProspectAI{% endblock %}
+{% block heading %}{% if primeiro %}Conectar {{ novo.nome }}{% else %}Integrações · Inteligência artificial{% endif %}{% endblock %}
 {% block breadcrumb %}<nav class="record-breadcrumb" aria-label="Localização"><a href="{% url 'configuracoes' %}">Configurações</a></nav>{% endblock %}
 {% block content %}
 {% include "record_feedback.html" %}
 <section class="panel record-form">
     <h2>{{ request.workspace.nome }}</h2>
-    {% if legado_gemini %}<p class="record-muted">A antiga credencial Gemini será preservada até a conexão Groq ser testada e salva. Ela não será usada nem enviada à Groq.</p>{% endif %}
     {% if config %}
-    <p><span class="status-tag status-positive">Credencial Groq salva</span> · {{ modelo }}</p>
-    {% if config.ultimo_teste %}<p class="record-muted">Último teste: {{ config.ultimo_teste|date:"d/m/Y H:i" }} — {% if config.status_teste == "valida" %}Acesso ao modelo confirmado{% elif config.status_teste == "credencial" %}Chave recusada{% elif config.status_teste == "limite" %}Limite atingido{% elif config.status_teste == "modelo" %}Modelo indisponível{% else %}Teste sem confirmação{% endif %}.</p>{% endif %}
-    <p class="record-muted">Busca de navegador: {% if web_habilitada %}habilitada{% else %}desativada{% endif %}.</p>
-    {% else %}<p>Conecte a Groq para usar a prospecção com IA. O CRM manual continua disponível.</p>{% endif %}
+    <p><span class="status-tag status-positive">Credencial {{ salvo.nome|default:"antiga" }} salva</span>{% if salvo %} · {{ modelo }}{% endif %}</p>
+    {% if config.ultimo_teste %}<p class="record-muted">Último teste: {{ config.ultimo_teste|date:"d/m/Y H:i" }} — {% if config.status_teste == "valida" %}Acesso ao modelo confirmado{% elif config.status_teste == "credencial" %}Chave recusada{% elif config.status_teste == "limite" %}Limite atingido{% elif config.status_teste == "modelo" %}Modelo indisponível{% elif config.status_teste == "acesso_negado" %}Acesso negado{% else %}Teste sem confirmação{% endif %}.</p>{% endif %}
+    <p class="record-muted">Busca na web: {% if web_habilitada %}habilitada{% else %}desativada{% endif %}.</p>
+    {% if trocando %}<p class="record-notice" role="status">A prospecção desta empresa ainda usa a chave {{ salvo.nome|default:"antiga" }}. Para passar a usar o {{ novo.nome }}, cole uma chave do {{ novo.nome }} abaixo e clique em <strong>Testar e substituir</strong>. A chave atual só é trocada se a nova for aprovada.</p>{% endif %}
+    {% else %}<p>Conecte o {{ novo.nome }} para usar a prospecção com IA. O CRM manual continua disponível.</p>{% endif %}
     {% if aviso %}<p class="{% if sucesso %}record-notice record-notice-success{% else %}record-form-error{% endif %}" role="status">{{ aviso }}</p>{% endif %}
     {% if pode_gerenciar %}
-    <p><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">Criar ou gerenciar chave no GroqCloud</a></p>
+    <p><a href="{{ novo.console_url }}" target="_blank" rel="noopener noreferrer">Criar ou gerenciar chave no {{ novo.console_nome }}</a></p>
     <form method="post" autocomplete="off">
         {% csrf_token %}
-        <div class="record-field"><label for="groq-chave">{% if config or legado_gemini %}Nova chave Groq{% else %}Chave Groq{% endif %}</label><input id="groq-chave" type="password" name="chave" maxlength="4096" autocomplete="new-password" required></div>
-        <p class="record-muted">O teste usa uma solicitação curta ao modelo, sem dados do CRM. A credencial é exclusiva desta empresa e fica criptografada no servidor.</p>
-        <div class="record-actions record-form-actions"><button class="button secondary" type="submit" name="acao" value="testar_nova">Testar chave</button><button class="button primary" type="submit" name="acao" value="salvar">{% if config or legado_gemini %}Testar e substituir{% else %}Testar e salvar{% endif %}</button></div>
+        <div class="record-field"><label for="ia-chave">{% if config %}Nova chave {{ novo.nome }}{% else %}Chave {{ novo.nome }}{% endif %}</label><input id="ia-chave" type="password" name="chave" maxlength="4096" autocomplete="new-password" required></div>
+        <p class="record-muted">O teste usa uma solicitação curta ao modelo {{ novo.modelo }}, sem dados do CRM. A credencial é exclusiva desta empresa e fica criptografada no servidor.</p>
+        <div class="record-actions record-form-actions"><button class="button secondary" type="submit" name="acao" value="testar_nova">Testar chave</button><button class="button primary" type="submit" name="acao" value="salvar">{% if config %}Testar e substituir{% else %}Testar e salvar{% endif %}</button></div>
     </form>
     {% if config %}
     <form method="post" class="record-actions record-form-actions">{% csrf_token %}<button class="button secondary" type="submit" name="acao" value="testar_salva">Testar conexão salva</button><button class="button quiet" type="submit" name="acao" value="remover">Remover credencial</button></form>
-    <form method="post" class="record-form-actions">{% csrf_token %}<div class="record-field"><label for="groq-limite">Limite diário de chamadas desta empresa</label><input id="groq-limite" name="limite" type="number" min="1" max="{{ limite_global }}" value="{{ config.limite_diario }}" required></div><button class="button secondary" type="submit" name="acao" value="limite">Salvar limite</button></form>
-    <form method="post" class="record-form-actions">{% csrf_token %}<h2>Busca de navegador</h2><p class="record-muted">A busca automática depende do modelo e do acesso da conta Groq. Ela é desativada por padrão; eventuais custos ou limites são definidos pela Groq. O ProspectAI não altera faturamento.</p>
+    <form method="post" class="record-form-actions">{% csrf_token %}<div class="record-field"><label for="ia-limite">Limite diário de chamadas desta empresa</label><input id="ia-limite" name="limite" type="number" min="1" max="{{ limite_global }}" value="{{ config.limite_diario }}" required></div><button class="button secondary" type="submit" name="acao" value="limite">Salvar limite</button></form>
+    {% if salvo %}
+    <form method="post" class="record-form-actions">{% csrf_token %}<h2>Busca na web</h2><p class="record-muted">Usa a {{ salvo.busca_nome }} para encontrar fontes automaticamente. Ela é desativada por padrão; eventuais custos ou limites são definidos pelo provedor ({{ salvo.console_nome }}). O ProspectAI não altera faturamento.</p>
         {% if web_habilitada %}<button class="button secondary" type="submit" name="acao" value="web_off">Desativar busca na web</button>
-        {% elif busca_web_disponivel %}<div class="record-field"><label><input type="checkbox" name="autorizar_web" value="1" required> Autorizo testar e habilitar a busca de navegador da Groq para esta empresa.</label></div><button class="button secondary" type="submit" name="acao" value="web_on">Testar acesso e habilitar</button>
-        {% else %}<p class="record-muted">O modelo configurado não oferece a busca de navegador. Use evidências manuais ou configure um modelo Groq compatível.</p>{% endif %}</form>
+        {% elif busca_web_disponivel %}<div class="record-field"><label><input type="checkbox" name="autorizar_web" value="1" required> Autorizo testar e habilitar a {{ salvo.busca_nome }} para esta empresa.</label></div><button class="button secondary" type="submit" name="acao" value="web_on">Testar acesso e habilitar</button>
+        {% else %}<p class="record-muted">O modelo configurado não oferece busca na web. Use evidências manuais ou configure um modelo compatível.</p>{% endif %}</form>
+    {% endif %}
     {% endif %}
     {% endif %}
     <div class="record-actions record-form-actions"><a class="button secondary" href="{% url 'gestao_lista' 'leads' %}">{% if primeiro %}Configurar depois{% else %}Voltar a Leads{% endif %}</a></div>

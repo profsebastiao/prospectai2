@@ -17,7 +17,9 @@ from apps.accounts.gemini_credentials import (
     CredencialIndisponivel, criptografar, descriptografar, pode_gerenciar_groq, status_groq, web_habilitada,
 )
 from apps.accounts.models import EventoIntegracaoGemini, IntegracaoGemini
-from apps.leads.groq import IAIndisponivel, SEM_CHAVE, limite_padrao, limite_global, testar_chave, MODELOS_COM_BUSCA
+from apps.leads.ia import (
+    PROVEDORES, SEM_CHAVE, IAIndisponivel, info, limite_global, limite_padrao, provedor_ativo, testar_chave,
+)
 
 
 def _conexao_segura(request):
@@ -35,13 +37,16 @@ def _auditar(request, evento):
 def _estado(request, aviso="", sucesso=False):
     workspace = request.workspace
     config = status_groq(workspace.pk)
-    legado = IntegracaoGemini.objects.filter(workspace=workspace, provedor="gemini").exists()
+    novo = info(provedor_ativo())
+    salvo = info(config["provedor"]) if config and config["provedor"] in PROVEDORES else None
     return render(request, "integracao_groq.html", {
-        "config": config, "legado_gemini": legado, "aviso": aviso, "sucesso": sucesso,
+        "config": config, "aviso": aviso, "sucesso": sucesso,
+        "novo": novo, "salvo": salvo,
+        "trocando": bool(config) and (salvo is None or salvo["codigo"] != novo["codigo"]),
         "pode_gerenciar": pode_gerenciar_groq(request.user, workspace),
         "web_habilitada": web_habilitada(config),
-        "busca_web_disponivel": settings.GROQ_MODEL in MODELOS_COM_BUSCA,
-        "modelo": settings.GROQ_MODEL,
+        "busca_web_disponivel": bool(salvo and salvo["busca_disponivel"]),
+        "modelo": salvo["modelo"] if salvo else novo["modelo"],
         "limite_global": limite_global(),
         "primeiro": request.GET.get("primeiro") == "1",
     })
@@ -87,18 +92,19 @@ def integracao_groq(request):
     try:
         if acao in {"testar_nova", "salvar"}:
             if not re.fullmatch(r"[\x21-\x7e]{1,4096}", chave):
-                return _estado(request, "Cole somente a chave copiada do GroqCloud, sem espaços ou quebras de linha.")
+                return _estado(request, f"Cole somente a chave copiada do {PROVEDORES[provedor_ativo()]['console_nome']}, sem espaços ou quebras de linha.")
             limite = atual.limite_diario if atual else limite_padrao()
+            novo = provedor_ativo()
             cifra = criptografar(request.workspace.pk, chave) if acao == "salvar" else None
-            testar_chave(request.workspace.pk, chave, limite)
+            testar_chave(novo, request.workspace.pk, chave, limite)
             if acao == "testar_nova":
                 return _estado(request, "Teste aprovado. Para conectar, informe a chave novamente e escolha Testar e salvar.", True)
             _alterar(
-                request, atual, "groq_substituida" if atual else "groq_conectada",
-                provedor="groq", credencial=cifra, pesquisa_web=False, modelo_pesquisa="",
+                request, atual, f"{novo}_substituida" if atual else f"{novo}_conectada",
+                provedor=novo, credencial=cifra, pesquisa_web=False, modelo_pesquisa="",
                 limite_diario=limite, ultimo_teste=timezone.now(), status_teste="valida",
             )
-            messages.success(request, "Groq conectada para esta empresa.")
+            messages.success(request, f"{PROVEDORES[novo]['nome']} conectado para esta empresa.")
         elif not atual:
             return _estado(request, SEM_CHAVE)
         elif acao == "remover":
@@ -109,33 +115,32 @@ def integracao_groq(request):
                 if not total:
                     raise CredencialIndisponivel("A integração mudou. Atualize a página antes de remover.")
                 _auditar(request, "removida")
-            messages.success(request, "Groq desconectada. Leads e relatórios foram preservados.")
+            messages.success(request, "IA desconectada. Leads e relatórios foram preservados.")
         elif acao == "limite":
             raw = request.POST.get("limite", "")
             if not raw.isascii() or not raw.isdecimal() or len(raw) > 7 or int(raw) < 1 or int(raw) > limite_global():
                 return _estado(request, "Informe um limite diário positivo que não ultrapasse o teto global do servidor.")
             _alterar(request, atual, "limite_alterado", limite_diario=int(raw))
             messages.success(request, "Limite diário atualizado.")
-        elif atual.provedor != "groq":
-            if acao == "testar_salva":
-                return _estado(request, "A credencial Gemini antiga não será enviada à Groq. Substitua-a por uma chave Groq.")
+        elif atual.provedor not in PROVEDORES:
             return _estado(request, SEM_CHAVE)
         elif acao == "web_off":
             _alterar(request, atual, "busca_web_desativada", pesquisa_web=False, modelo_pesquisa="")
             messages.success(request, "Busca na web desativada.")
         elif acao == "web_on":
             if request.POST.get("autorizar_web") != "1":
-                return _estado(request, "Confirme que a busca na web está autorizada para a conta Groq da empresa.")
-            if settings.GROQ_MODEL not in MODELOS_COM_BUSCA:
-                return _estado(request, "O modelo configurado não oferece a busca de navegador da Groq.")
+                return _estado(request, "Confirme que a busca na web está autorizada para a conta de IA da empresa.")
+            salvo = info(atual.provedor)
+            if not salvo["busca_disponivel"]:
+                return _estado(request, f"O modelo configurado não oferece a {salvo['busca_nome']}.")
             chave = descriptografar(atual)
-            testar_chave(request.workspace.pk, chave, atual.limite_diario, web=True)
-            _alterar(request, atual, "busca_web_habilitada", pesquisa_web=True, modelo_pesquisa=settings.GROQ_MODEL)
-            messages.success(request, "Busca de navegador testada e habilitada para esta empresa.")
+            testar_chave(atual.provedor, request.workspace.pk, chave, atual.limite_diario, web=True)
+            _alterar(request, atual, "busca_web_habilitada", pesquisa_web=True, modelo_pesquisa=salvo["modelo"])
+            messages.success(request, "Busca na web testada e habilitada para esta empresa.")
         else:
             chave = descriptografar(atual)
             try:
-                testar_chave(request.workspace.pk, chave, atual.limite_diario)
+                testar_chave(atual.provedor, request.workspace.pk, chave, atual.limite_diario)
             except IAIndisponivel as exc:
                 IntegracaoGemini.objects.filter(pk=atual.pk, versao=atual.versao).update(
                     ultimo_teste=timezone.now(), status_teste=exc.codigo,
@@ -144,7 +149,7 @@ def integracao_groq(request):
             IntegracaoGemini.objects.filter(pk=atual.pk, versao=atual.versao).update(
                 ultimo_teste=timezone.now(), status_teste="valida",
             )
-            messages.success(request, "A chave Groq salva tem acesso ao modelo configurado.")
+            messages.success(request, f"A chave {info(atual.provedor)['nome']} salva tem acesso ao modelo configurado.")
     except (IAIndisponivel, CredencialIndisponivel) as exc:
         return _estado(request, str(exc))
     return redirect("integracao_groq")

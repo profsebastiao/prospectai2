@@ -16,7 +16,7 @@ from django.views.decorators.http import require_http_methods
 from apps.accounts.access import scoped_queryset
 from apps.accounts.models import Workspace
 from apps.accounts.gemini_credentials import pode_gerenciar_groq, status_groq, web_habilitada
-from apps.leads.groq import SEM_CHAVE, WEB_INDISPONIVEL
+from apps.leads.ia import SEM_CHAVE, WEB_INDISPONIVEL
 from apps.leads.models import AnaliseProspeccao, Lead, PesquisaProspeccao, RelatorioProspeccao
 from apps.leads.perfis import instagram_handle, profile_identity
 from apps.leads.prospeccao import (

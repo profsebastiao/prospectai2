@@ -7,8 +7,8 @@
 {% if request.workspace %}
 <section class="panel interior-card">
     <h2>Integrações</h2>
-    <p class="record-muted">Consulte a conexão Groq de {{ request.workspace.nome }}.</p>
-    <a class="button secondary" href="{% url 'integracao_groq' %}">Groq</a>
+    <p class="record-muted">Consulte a conexão de IA de {{ request.workspace.nome }}.</p>
+    <a class="button secondary" href="{% url 'integracao_groq' %}">Inteligência artificial ({{ ia_nome }})</a>
 </section>
 {% endif %}
 <div class="settings-grid">

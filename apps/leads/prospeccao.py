@@ -5,7 +5,7 @@ from email.utils import parsedate_to_datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .busca_web import BuscaIndisponivel, buscar, candidatos
-from .groq import IAIndisponivel, gerar
+from .ia import IAIndisponivel, gerar
 from .perfis import domain, profile_identity, web_url
 
 
@@ -79,7 +79,7 @@ def normalizar_fontes(itens):
         fontes[chave] = {
             "id": len(fontes) + 1, "url": url, "title": titulo, "content": trecho,
             "publicacao": data_publicacao(item.get("published_date")),
-            "origem": item.get("origem", "groq"),
+            "origem": item.get("origem", "web"),
             "restrita": bool(RESTRICAO.search(titulo + " " + trecho)),
         }
     return list(fontes.values())
@@ -166,7 +166,7 @@ def analisar_ia(modo, criterios, fontes, destinatario="", *, workspace_id):
         schema=ESQUEMAS[modo],
     )
     if any(not isinstance(resposta.get(chave), list) for chave in ESQUEMAS[modo]["required"]):
-        raise IAIndisponivel("O Groq não devolveu a estrutura esperada. As evidências permanecem disponíveis.")
+        raise IAIndisponivel("A IA não devolveu a estrutura esperada. As evidências permanecem disponíveis.")
     return resposta
 
 
@@ -174,13 +174,13 @@ def sugerir_consultas(criterios, workspace_id):
     dados = analisar_ia("consultas", criterios, [], workspace_id=workspace_id)
     consultas = dados.get("consultas")
     if not isinstance(consultas, list):
-        raise IAIndisponivel("O Groq não devolveu sugestões válidas.")
+        raise IAIndisponivel("A IA não devolveu sugestões válidas.")
     consultas = list(dict.fromkeys(
         texto.strip() for texto in consultas[:5]
         if isinstance(texto, str) and 5 <= len(texto.strip()) <= 240
     ))
     if not consultas:
-        raise IAIndisponivel("O Groq não devolveu sugestões válidas.")
+        raise IAIndisponivel("A IA não devolveu sugestões válidas.")
     return consultas
 
 
@@ -234,7 +234,7 @@ def ranquear(dados, fontes, criterios):
         palavras_evidencia = {palavra.rstrip("s") for palavra in re.findall(r"\w+", evidencia)}
         compatibilidade = len(palavras_servico & palavras_evidencia)
         direta = INTENCAO.search(evidencia) and compatibilidade
-        if fonte.get("origem") == "groq" and not re.search(r'["“«].+["”»]', registro["evidencia"]):
+        if fonte.get("origem") in {"groq", "gemini", "web"} and not re.search(r'["“«].+["”»]', registro["evidencia"]):
             direta = False
         if tipo == "demanda" and not direta:
             tipo = "insuficiente"
@@ -329,7 +329,7 @@ def analisar_candidato(candidato, fontes, criterios, destinatario, *, workspace_
         ],
         "limitacao": (
             "Análise limitada ao material apresentado. Evidências coladas não são verificadas na internet. "
-            "Segmentos da busca web da Groq são trechos atribuídos pelo Groq às referências retornadas."
+            "Segmentos da busca web são trechos atribuídos pela IA às referências retornadas."
         ),
     }
 

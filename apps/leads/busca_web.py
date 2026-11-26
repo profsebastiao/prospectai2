@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlsplit
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 
-from .groq import IAIndisponivel, pesquisar_groq
+from .ia import IAIndisponivel, pesquisar
 from .perfis import HOSTS, RedeSocial, domain, profile_identity, web_url
 
 
@@ -29,7 +29,7 @@ class BuscaIndisponivel(Exception):
 
 def buscar(query, *, workspace_id):
     try:
-        return pesquisar_groq(query, workspace_id)
+        return pesquisar(query, workspace_id)
     except IAIndisponivel as exc:
         raise BuscaIndisponivel(str(exc)) from exc
 

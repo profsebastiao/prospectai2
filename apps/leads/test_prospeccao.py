@@ -232,7 +232,7 @@ class ProspeccaoIATests(TestCase):
         response = self.client.post(url, {**dados, **self.evidencias([{"url": "https://instagram.com/cafeaurora"}])})
         self.assertContains(response, "Um link sozinho não foi consultado.")
         response = self.client.post(url, {**dados, "acao": "web"})
-        self.assertContains(response, "Conecte a Groq")
+        self.assertContains(response, "Conecte a IA desta empresa")
         busca.assert_not_called()
         ia.assert_not_called()
         self.assertFalse(PesquisaProspeccao.objects.exists())

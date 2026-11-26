@@ -8,8 +8,8 @@
 {% block extra_head %}<link rel="stylesheet" href="{% static 'accounts/busca-leads.css' %}?v=1">{% endblock %}
 {% block content %}
 {% if not groq_conectado %}
-<p class="panel">Conecte a Groq para usar a prospecção com IA.
-    {% if pode_gerenciar_groq %}<a href="{% url 'integracao_groq' %}">Configurar Groq</a>{% endif %}
+<p class="panel">Conecte o {{ ia_nome }} para usar a prospecção com IA.
+    {% if pode_gerenciar_groq %}<a href="{% url 'integracao_groq' %}">Configurar {{ ia_nome }}</a>{% endif %}
 </p>
 {% endif %}
 <form method="post" class="panel record-form web-lead-search">

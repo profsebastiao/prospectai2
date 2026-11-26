@@ -17,7 +17,7 @@ CHAVE_A = "fixture-groq-empresa-a"
 CHAVE_INVALIDA = "fixture-chave-recusada"
 
 
-@override_settings(GEMINI_ENCRYPTION_KEYS=AES_TESTE, GROQ_COMPANY_DAILY_LIMIT=12, GROQ_MODEL="openai/gpt-oss-20b")
+@override_settings(GEMINI_ENCRYPTION_KEYS=AES_TESTE, GROQ_COMPANY_DAILY_LIMIT=12, GROQ_MODEL="openai/gpt-oss-20b", IA_PROVEDOR="groq")
 class IntegracaoGroqTests(TestCase):
     @classmethod
     def setUpTestData(cls):

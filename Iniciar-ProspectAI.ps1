@@ -94,17 +94,17 @@ try {
     }
     if (-not $keyring) {
         while ($true) {
-            $secureMaster = Read-Host "Chave mestre AES-256 em Base64 (nao e a chave Groq gsk_; Enter inicia sem IA)" -AsSecureString
+            $secureMaster = Read-Host "Chave mestre AES-256 em Base64 (nao e a chave do Gemini/Groq; Enter inicia sem IA)" -AsSecureString
             $keyring = [System.Net.NetworkCredential]::new("", $secureMaster).Password
             Remove-Variable secureMaster -ErrorAction SilentlyContinue
             if (-not $keyring) { break }
-            if ($keyring.StartsWith("gsk_")) {
-                Write-Host "Essa e a chave da API Groq. Digite a chave mestre de criptografia neste prompt; a nova chave Groq sera cadastrada dentro do ProspectAI depois que ele abrir." -ForegroundColor Yellow
+            if ($keyring.StartsWith("gsk_") -or $keyring.StartsWith("AIza")) {
+                Write-Host "Essa e a chave da API de IA (Gemini/Groq). Digite a chave mestre de criptografia neste prompt; a chave de IA e cadastrada dentro do ProspectAI depois que ele abrir." -ForegroundColor Yellow
                 $keyring = $null
                 continue
             }
             if (Test-AIKeyring $keyring) { break }
-            Write-Host "Formato incorreto. Use a chave mestre Base64 de 32 bytes guardada anteriormente. A chave Groq gsk_ nao serve aqui." -ForegroundColor Yellow
+            Write-Host "Formato incorreto. Use a chave mestre Base64 de 32 bytes guardada anteriormente. A chave do Gemini ou da Groq nao serve aqui." -ForegroundColor Yellow
             $keyring = $null
         }
     }
@@ -113,6 +113,8 @@ try {
     Remove-Variable secureMaster -ErrorAction SilentlyContinue
     $keyring = $null
 
+    if (-not $env:IA_PROVEDOR) { $env:IA_PROVEDOR = "gemini" }
+    if (-not $env:GEMINI_MODEL) { $env:GEMINI_MODEL = "gemini-3.8-flash" }
     if (-not $env:GROQ_MODEL) { $env:GROQ_MODEL = "openai/gpt-oss-20b" }
     if (-not $env:GROQ_COMPANY_DAILY_LIMIT) { $env:GROQ_COMPANY_DAILY_LIMIT = "10" }
     if (-not $env:GROQ_GLOBAL_DAILY_LIMIT) { $env:GROQ_GLOBAL_DAILY_LIMIT = "100" }
