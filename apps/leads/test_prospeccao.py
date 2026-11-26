@@ -337,3 +337,14 @@ class ProspeccaoIATests(TestCase):
         })
         self.assertNotContains(resposta, "parece só um nome", status_code=302)
         self.assertEqual(resposta.status_code, 302)
+
+    @patch("config.prospeccao_views.analisar_ia")
+    def test_aviso_aponta_qual_evidencia_corrigir(self, ia):
+        url = reverse("prospeccao_iniciar", args=["oportunidades"])
+        resposta = self.client.post(url, {
+            **self.campos(self.marcenaria, self.cozinha, acao="manual"),
+            **self.evidencias([{"content": PEDIDO}, {"content": "Loja de móveis planejados em João Pessoa com showroom."},
+                               {"content": "evolusom"}]),
+        })
+        self.assertContains(resposta, "Corrija a evidência 3")
+        ia.assert_not_called()

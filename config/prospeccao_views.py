@@ -280,9 +280,17 @@ def iniciar(request, modo):
                 aviso = SEM_CHAVE if not config_ia else WEB_INDISPONIVEL
             else:
                 if acao == "manual":
-                    itens = _evidencias_manuais(evidencias) if evidencias.is_valid() else []
-                    if not itens:
-                        aviso = "Cole pelo menos um trecho público. Informar apenas nome, @perfil ou link não consulta a fonte."
+                    if not evidencias.is_valid():
+                        itens = []
+                        com_erro = [str(i + 1) for i, form in enumerate(evidencias.forms) if form.errors]
+                        aviso = (
+                            f"Corrija a evidência {', '.join(com_erro)} (marcada em vermelho abaixo) e clique em analisar de novo."
+                            if com_erro else "Revise as evidências abaixo e clique em analisar de novo."
+                        )
+                    else:
+                        itens = _evidencias_manuais(evidencias)
+                        if not itens:
+                            aviso = "Cole pelo menos um trecho público. Informar apenas nome, @perfil ou link não consulta a fonte."
                 else:
                     itens = []
                 if not aviso:
