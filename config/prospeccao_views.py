@@ -23,7 +23,7 @@ from apps.leads.perfis import instagram_handle, profile_identity
 from apps.leads.diagnostico import diagnosticar, limpar_nome, nome_da_fonte
 from apps.accounts.gemini_credentials import busca_conectada
 from apps.leads.prospeccao import (
-    IAIndisponivel, analisar_candidato, analisar_ia, canais, coletar, coletar_google,
+    IAIndisponivel, analisar_candidato, analisar_ia, canais, coletar, coletar_google, consultas_google, mesma_empresa,
     consultas_oportunidades, fontes_confirmadas, identificar, normalizar, normalizar_fontes,
     ranquear, reportar, sugerir_consultas,
 )
@@ -319,6 +319,8 @@ def iniciar(request, modo):
 
                     if acao == "google" and consulta_google:
                         consultas = (consulta_google,)
+                    elif acao == "google" and oportunidades:
+                        consultas = consultas_google(contexto)
                     dia = timezone.localdate().isoformat() if acao in {"web", "google"} else ""
                     chave = _chave(modo, consulta, contexto, acao, itens, dia, consultas if acao == "google" else ())
                     existentes = scoped_queryset(request, PesquisaProspeccao).filter(chave=chave)
@@ -331,7 +333,7 @@ def iniciar(request, modo):
                         )
                         return redirect("prospeccao_pesquisa", pk=registro.pk)
                     if acao == "google":
-                        fontes, avisos = coletar_google(consultas, request.workspace.pk, itens)
+                        fontes, avisos = coletar_google(consultas, request.workspace.pk, itens, contexto)
                         widget = ""
                     else:
                         fontes, avisos, widget = (
@@ -488,6 +490,8 @@ def pesquisa(request, pk):
 
     return render(request, "prospeccao_pesquisa.html", {
         "pesquisa": registro, "oportunidades": oportunidades,
+        "so_manuais": all(f.get("origem") == "manual" for f in registro.fontes),
+        "insuficientes": sum(1 for r in registro.resultados if r.get("tipo") == "insuficiente") if oportunidades else 0,
         "analises": scoped_queryset(request, AnaliseProspeccao).filter(pesquisa=registro).order_by("-pk"),
     })
 
@@ -556,26 +560,29 @@ def _relatorio_oportunidade(request, registro):
         return HttpResponseBadRequest("Selecione uma oportunidade desta pesquisa.")
     resultado = registro.resultados[indice]
     fonte = resultado["fonte"]
-    nome = limpar_nome(resultado.get("nome") or nome_da_fonte(fonte, "Empresa pesquisada"))
-    cidade = resultado.get("regiao") or registro.criterios.get("regiao", "")
+    regiao = registro.criterios.get("regiao", "")
+    nome = limpar_nome(resultado.get("nome") or nome_da_fonte(fonte, "Empresa pesquisada", regiao), regiao)
+    cidade = resultado.get("regiao") or regiao
+    relacionadas = [f for f in mesma_empresa(fonte, registro.fontes, nome) if not f.get("restrita")] or [fonte]
     candidato = next(iter(identificar([fonte], cidade, nome)), None) or {
         "fonte": "", "fonte_id": fonte["id"], "nome": nome, "titulo": nome, "descricao": fonte["content"],
         "cidade": cidade, "perfis": [], "principal": None, "links": [], "email": "", "telefone": "", "whatsapp": "",
     }
     candidato["nome"] = nome
-    candidato.setdefault("descricao", fonte["content"])
-    if not candidato.get("fonte_id") and not fonte["url"]:
-        candidato["fonte_id"] = fonte["id"]
-    chave = _chave("relatorio", indice)
+    candidato["descricao"] = "\n".join(f["content"] for f in relacionadas)
+    chave = _chave("relatorio-empresa", indice, sorted(f["id"] for f in relacionadas))
     anteriores = scoped_queryset(request, AnaliseProspeccao).filter(pesquisa=registro, chave=chave)
     existente = anteriores.first()
     if existente and not existente.dados.get("aviso"):
         return redirect("prospeccao_analise", pk=existente.pk)
     criterios = {**registro.criterios, "cidade": cidade}
     try:
-        dados = analisar_candidato(candidato, registro.fontes, criterios, "", workspace_id=request.workspace.pk)
+        # Só as evidências da mesma empresa entram (mesmo @, site ou nome), nunca as das outras.
+        dados = analisar_candidato(
+            candidato, relacionadas, criterios, "", workspace_id=request.workspace.pk, todas=True,
+        )
     except IAIndisponivel as exc:
-        fontes = fontes_confirmadas(candidato, registro.fontes)
+        fontes = relacionadas
         dados = {
             "aviso": f"{exc} O diagnóstico de presença digital abaixo foi feito sem a IA.",
             "fontes": fontes, "canais": canais(candidato, fontes),

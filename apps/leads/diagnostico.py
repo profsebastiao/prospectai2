@@ -80,25 +80,44 @@ AVISO = (
 )
 
 
-def nome_da_fonte(fonte, padrao=""):
+def nome_da_fonte(fonte, padrao="", regiao=""):
     """Nome da fonte ou, sem ele, a primeira linha útil do trecho (sem emojis)."""
     titulo = (fonte.get("title") or "").strip()
     if titulo:
-        return titulo[:120]
+        return limpar_nome(titulo, regiao) or titulo[:120]
     for linha in (fonte.get("content") or "").splitlines():
         linha = " ".join(EMOJI.sub(" ", linha).split()).strip(" -–—:|")
         if len(linha) >= 4:
-            return limpar_nome(linha)
+            return limpar_nome(linha, regiao)
     return padrao
 
 
-def limpar_nome(texto):
-    """Fica com o nome do negócio: corta telefone, @perfil e endereço que vierem na mesma linha."""
-    partes = [p.strip(" -–—:|·") for p in re.split(r"\s+[–—|·]\s+|\s+-\s+", texto) if p.strip(" -–—:|·")]
+SUFIXOS_TITULO = re.compile(
+    r"\s*[•·|-]?\s*(?:Instagram photos and videos|fotos e v[ií]deos do Instagram|Instagram|Facebook|TikTok|LinkedIn)\s*$",
+    re.I,
+)
+CIDADE_UF = re.compile(r"^[A-ZÀ-Ú][\wÀ-ú'. ]{1,40},\s*[A-Z]{2}$")
+
+
+def _sem_acento(texto):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFKD", texto.casefold()) if not unicodedata.combining(c)).strip()
+
+
+def limpar_nome(texto, regiao=""):
+    """Fica com o nome do negócio: corta telefone, @perfil, endereço, cidade e sufixos de rede social."""
+    texto = re.sub(r"\s*\(@[\w.]+\)", "", texto or "")
+    for _ in range(2):
+        texto = SUFIXOS_TITULO.sub("", texto).strip()
+    cidade = _sem_acento(re.split(r"[-,/]", regiao)[0]) if regiao else ""
+    partes = [p.strip(" -–—:|·•") for p in re.split(r"\s+[–—|·•]\s+|\s+-\s+|\s*\|\s*", texto) if p.strip(" -–—:|·•")]
     for parte in partes:
-        if not (TELEFONE.search(parte) or parte.startswith("@") or ENDERECO.match(parte) or URLS.search(parte)):
-            texto = parte
-            break
+        if TELEFONE.search(parte) or parte.startswith("@") or ENDERECO.match(parte) or URLS.search(parte):
+            continue
+        if CIDADE_UF.match(parte) or (cidade and _sem_acento(parte) == cidade):
+            continue
+        texto = parte
+        break
     return (texto[:77] + "…") if len(texto) > 80 else texto
 
 

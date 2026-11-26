@@ -5,7 +5,7 @@ from email.utils import parsedate_to_datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .busca_web import BuscaIndisponivel, buscar, candidatos
-from .diagnostico import diagnosticar, nome_da_fonte, texto_relatorio
+from .diagnostico import diagnosticar, limpar_nome, nome_da_fonte, texto_relatorio
 from .ia import IAIndisponivel, gerar
 from .perfis import domain, profile_identity, web_url
 
@@ -97,7 +97,92 @@ def coletar(consultas, workspace_id):
         return [], [str(exc)], ""
 
 
-def coletar_google(consultas, workspace_id, manuais=()):
+PALAVRAS_GENERICAS = {
+    "para", "como", "com", "das", "dos", "uma", "por", "pelo", "pela", "que", "sua", "seu", "mais", "pouca", "pouco",
+    "presenca", "empresa", "empresas", "negocio", "negocios", "servico", "servicos", "loja", "lojas", "local", "locais",
+    "joao", "pessoa", "instagram", "photos", "videos", "facebook", "oficial", "brasil",
+}
+FRASES_CONCORRENTE = (
+    "agencia", "marketing digital", "criacao de site", "criacao de sites", "desenvolvimento web", "trafego pago",
+    "gestao de redes sociais", "landing page", "landing pages", "seo",
+)
+
+
+# Expressões que sozinhas já indicam um concorrente da agência.
+FRASES_FORTES = re.compile(
+    r"agencia(?: de)? marketing|marketing digital|criacao (?:de )?sites?|desenvolvimento (?:de )?(?:web|sites?)|trafego pago"
+)
+
+
+def _palavras(texto):
+    return {p.rstrip("s") for p in re.findall(r"[a-z0-9]{4,}", normalizar(texto)) if p.rstrip("s") not in PALAVRAS_GENERICAS}
+
+
+def consultas_google(criterios):
+    """Buscas no Google a partir do perfil de cliente (e não do ramo da empresa, que traria concorrentes)."""
+    publico = " ".join(criterios["publico"].split()[:8])
+    regiao = criterios["regiao"]
+    return (f"{publico} {regiao} instagram", f"{publico} {regiao}", f"{publico} {regiao} whatsapp avaliações")
+
+
+def filtrar_concorrentes(fontes, criterios):
+    """Tira resultados do Google que parecem empresas do mesmo ramo da agência (concorrentes, não clientes)."""
+    ramo = _palavras(criterios.get("ramo", ""))
+    publico = _palavras(criterios.get("publico", ""))
+    mantidas = []
+    for fonte in fontes:
+        if fonte.get("origem") != "google":
+            mantidas.append(fonte)
+            continue
+        texto = normalizar(f'{fonte.get("title", "")} {fonte.get("content", "")} {fonte.get("url", "")}')
+        palavras = {p.rstrip("s") for p in re.findall(r"[a-z0-9]{4,}", texto)}
+        fortes = 2 * len(set(FRASES_FORTES.findall(texto)))
+        pontos = len(ramo & palavras) + fortes + sum(1 for frase in FRASES_CONCORRENTE if frase in texto)
+        if pontos >= 2 and not (publico & palavras):
+            continue
+        mantidas.append(fonte)
+    return mantidas
+
+
+def mesma_empresa(base, fontes, nome=""):
+    """Evidências da mesma empresa da fonte base: mesmo @perfil, mesmo site ou mesmo nome próprio."""
+    def identidade(fonte):
+        perfil = profile_identity(fonte.get("url") or "")
+        return (str(perfil[0]), perfil[1]) if perfil and perfil[1] else None
+
+    def site(fonte):
+        url = fonte.get("url") or ""
+        host = domain(url) if url else ""
+        return host if host and not profile_identity(url) and "google" not in host else ""
+
+    alvo_perfil, alvo_site = identidade(base), site(base)
+    handles = {m.casefold() for m in re.findall(r"@([\w.]{3,30})", f'{base.get("title", "")} {base.get("content", "")}')}
+    if alvo_perfil:
+        handles.add(alvo_perfil[1].casefold())
+    genericas = {"otica", "oculo", "lente", "studio", "store"}
+    primeira_linha = next((l for l in (base.get("content") or "").splitlines() if l.strip()), "")
+    nomes = [limpar_nome(n) for n in (nome, base.get("title", ""), primeira_linha) if n]
+    conjuntos = [c for c in (_palavras(n) - genericas for n in nomes) if c]
+    # @perfil sem pontuação ("oticavirtuosa") também identifica a empresa em textos como "Ótica Virtuosa".
+    compactos = {re.sub(r"[^a-z0-9]", "", normalizar(h)).removesuffix("jp") for h in handles}
+    compactos = {h for h in compactos if len(h) >= 6}
+    relacionadas = []
+    for fonte in fontes:
+        if fonte is base or fonte.get("id") == base.get("id"):
+            relacionadas.append(fonte)
+            continue
+        texto = f'{fonte.get("title", "")} {fonte.get("content", "")} {fonte.get("url", "")}'
+        perfil = identidade(fonte)
+        if (alvo_perfil and perfil == alvo_perfil) or (alvo_site and site(fonte) == alvo_site) \
+                or (perfil and perfil[1].casefold() in handles) \
+                or any(f"@{h}" in texto.casefold() or f"/{h}" in texto.casefold() for h in handles) \
+                or any(conjunto <= _palavras(texto) for conjunto in conjuntos) \
+                or any(h in re.sub(r"[^a-z0-9]", "", normalizar(texto)) for h in compactos):
+            relacionadas.append(fonte)
+    return relacionadas
+
+
+def coletar_google(consultas, workspace_id, manuais=(), criterios=None):
     """Busca no Google (Serper.dev) e junta com as evidências coladas pelo usuário."""
     from .serper import buscar_google  # import tardio: serper usa os modelos de leads
 
@@ -105,7 +190,9 @@ def coletar_google(consultas, workspace_id, manuais=()):
         encontrados = buscar_google(consultas, workspace_id)
     except IAIndisponivel as exc:
         return normalizar_fontes(list(manuais)), [str(exc)]
-    avisos = [] if encontrados else ["O Google não retornou resultados para esta busca. Tente outra consulta."]
+    if criterios:
+        encontrados = filtrar_concorrentes(encontrados, criterios)
+    avisos = [] if encontrados else ["O Google não retornou resultados úteis para esta busca. Tente outra consulta."]
     return normalizar_fontes([*manuais, *encontrados]), avisos
 
 
@@ -266,7 +353,7 @@ def ranquear(dados, fontes, criterios):
             tipo = "insuficiente"
         registro.update(
             tipo=tipo, classificacao=TIPOS[tipo],
-            nome=nome_da_fonte(fonte) or (domain(fonte["url"]) if fonte["url"] else f'Evidência {fonte["id"]}'),
+            nome=nome_da_fonte(fonte, regiao=criterios["regiao"]) or (domain(fonte["url"]) if fonte["url"] else f'Evidência {fonte["id"]}'),
             regiao=criterios["regiao"] if area and area in texto_fonte else "",
             compatibilidade=compatibilidade,
         )
@@ -277,7 +364,7 @@ def ranquear(dados, fontes, criterios):
         if fonte["id"] not in usados:
             resultados.append({
                 "tipo": "insuficiente", "classificacao": TIPOS["insuficiente"],
-                "nome": nome_da_fonte(fonte, f'Evidência {fonte["id"]}'), "fonte": fonte,
+                "nome": nome_da_fonte(fonte, f'Evidência {fonte["id"]}', criterios["regiao"]), "fonte": fonte,
                 "servico": "", "regiao": "", "compatibilidade": 0, "evidencia": "",
                 "texto": "Não há evidência suficiente para indicar uma oportunidade.",
             })

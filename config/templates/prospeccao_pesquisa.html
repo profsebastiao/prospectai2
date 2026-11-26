@@ -18,7 +18,7 @@
 {% if pesquisa.resultados %}
 <form method="post" class="prospecting-results">
     {% csrf_token %}
-    {% if oportunidades and perm_editar and pesquisa.fontes|length > 1 %}
+    {% if oportunidades and perm_editar and so_manuais and pesquisa.fontes|length > 1 %}
     <section class="panel prospecting-summary">
         <h2>Todas as evidências são da mesma empresa?</h2>
         <p class="record-muted">Nesta tela cada evidência é tratada como uma empresa diferente. Se você colou várias evidências do mesmo negócio (perfil, posts, Linktree, Google), gere um relatório único com todas elas.</p>
@@ -26,6 +26,7 @@
     </section>
     {% endif %}
     {% for item in pesquisa.resultados %}
+    {% if not oportunidades or item.tipo != "insuficiente" %}
     <article class="panel prospecting-card">
         {% if oportunidades %}
         <h3>{% if item.tipo == "insuficiente" %}{{ item.nome }}{% else %}<label><input type="checkbox" name="selecionados" value="{{ forloop.counter0 }}"> {{ item.nome }}</label>{% endif %}</h3>
@@ -44,7 +45,23 @@
         <button class="button primary" type="submit" name="candidato" value="{{ forloop.counter0 }}">Confirmar este candidato</button>
         {% endif %}
     </article>
+    {% endif %}
     {% endfor %}
+    {% if insuficientes %}
+    <details class="panel prospecting-summary">
+        <summary>Outras fontes sem oportunidade ({{ insuficientes }})</summary>
+        <p class="record-muted">Resultados que a IA não considerou oportunidade (por exemplo, concorrentes ou páginas genéricas). Você ainda pode gerar o relatório de qualquer um.</p>
+        <ul class="prospecting-sources">
+            {% for item in pesquisa.resultados %}{% if item.tipo == "insuficiente" %}
+            <li>
+                <strong>{{ item.nome }}</strong>
+                {% include "prospeccao_fonte.html" with fonte=item.fonte only %}
+                {% if perm_editar %}<button class="button quiet" type="submit" name="relatorio" value="{{ forloop.counter0 }}" data-aguarde="Gerando relatório…">Gerar relatório</button>{% endif %}
+            </li>
+            {% endif %}{% endfor %}
+        </ul>
+    </details>
+    {% endif %}
     {% if oportunidades %}<button class="button primary" type="submit">Cadastrar selecionados no CRM</button>{% endif %}
 </form>
 {% endif %}
