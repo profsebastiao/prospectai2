@@ -13,12 +13,12 @@ from apps.accounts.models import EventoIntegracaoGemini, IntegracaoGemini, Works
 
 
 AES_TESTE = base64.urlsafe_b64encode(b"k" * 32).decode()
-CHAVE_A = "AIza-fixture-empresa-a"
+CHAVE_A = "sk-or-v1-fixture-empresa-a"
 CHAVE_INVALIDA = "fixture-chave-recusada"
 
 
-@override_settings(GEMINI_ENCRYPTION_KEYS=AES_TESTE, IA_COMPANY_DAILY_LIMIT=12, GEMINI_MODEL="gemini-3.8-flash")
-class IntegracaoGeminiTests(TestCase):
+@override_settings(GEMINI_ENCRYPTION_KEYS=AES_TESTE, IA_COMPANY_DAILY_LIMIT=12, OPENROUTER_MODEL="openrouter/free")
+class IntegracaoIATests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.admin = get_user_model().objects.create_user("gestor")
@@ -45,44 +45,42 @@ class IntegracaoGeminiTests(TestCase):
     @staticmethod
     def simular(opener, chave, *, rejeitar=False):
         def abrir(req, timeout):
-            assert req.get_header("X-goog-api-key") == chave
+            assert req.get_header("Authorization") == f"Bearer {chave}"
             if rejeitar:
-                raise HTTPError(req.full_url, 400, "bad request", {}, io.BytesIO(
-                    b'{"error":{"message":"API key not valid.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}'
-                ))
+                raise HTTPError(req.full_url, 401, "unauthorized", {}, io.BytesIO(b'{"error":{"code":401,"message":"User not found."}}'))
             response = MagicMock()
-            response.__enter__.return_value.read.return_value = json.dumps({"candidates": [{
-                "finishReason": "STOP", "content": {"parts": [{"text": "{\"ok\":true}"}]},
+            response.__enter__.return_value.read.return_value = json.dumps({"choices": [{
+                "finish_reason": "stop", "message": {"content": "{\"ok\":true}"},
             }]}).encode()
             return response
         opener.return_value.open.side_effect = abrir
 
-    @patch("apps.leads.gemini.build_opener")
+    @patch("apps.leads.openrouter.build_opener")
     def test_salva_credencial_encriptada_por_empresa_e_status_sem_segredo(self, opener):
         self.simular(opener, CHAVE_A)
         response = self.pedido("salvar", chave=CHAVE_A)
         self.assertEqual(response.status_code, 302)
         config = IntegracaoGemini.objects.get(workspace=self.a)
-        self.assertEqual(config.provedor, "gemini")
+        self.assertEqual(config.provedor, "openrouter")
         self.assertNotIn(CHAVE_A.encode(), bytes(config.credencial))
         self.assertEqual(descriptografar(config), CHAVE_A)
         tela = self.client.get(self.url)
-        self.assertContains(tela, "Credencial Gemini salva")
+        self.assertContains(tela, "Credencial OpenRouter salva")
         self.assertNotContains(tela, CHAVE_A)
-        self.assertTrue(EventoIntegracaoGemini.objects.filter(workspace=self.a, evento="gemini_conectada").exists())
+        self.assertTrue(EventoIntegracaoGemini.objects.filter(workspace=self.a, evento="openrouter_conectada").exists())
 
-    @patch("apps.leads.gemini.build_opener")
+    @patch("apps.leads.openrouter.build_opener")
     def test_chave_recusada_preserva_configuracao_anterior(self, opener):
         self.simular(opener, CHAVE_A)
         self.pedido("salvar", chave=CHAVE_A)
         anterior = IntegracaoGemini.objects.get(workspace=self.a)
         self.simular(opener, CHAVE_INVALIDA, rejeitar=True)
         response = self.pedido("salvar", chave=CHAVE_INVALIDA)
-        self.assertContains(response, "A chave do Gemini foi recusada")
+        self.assertContains(response, "A chave do OpenRouter foi recusada")
         atual = IntegracaoGemini.objects.get(workspace=self.a)
         self.assertEqual(bytes(atual.credencial), bytes(anterior.credencial))
 
-    @patch("apps.leads.gemini.build_opener")
+    @patch("apps.leads.openrouter.build_opener")
     def test_membro_comum_nao_configura_e_outro_workspace_e_isolado(self, opener):
         self.client.force_login(self.member)
         self.selecionar(self.a)
@@ -90,8 +88,8 @@ class IntegracaoGeminiTests(TestCase):
         self.assertFalse(IntegracaoGemini.objects.exists())
         self.client.force_login(self.admin)
         self.selecionar(self.b)
-        self.simular(opener, "AIza-fixture-empresa-b")
-        self.assertEqual(self.pedido("salvar", chave="AIza-fixture-empresa-b").status_code, 302)
+        self.simular(opener, "sk-or-v1-fixture-empresa-b")
+        self.assertEqual(self.pedido("salvar", chave="sk-or-v1-fixture-empresa-b").status_code, 302)
         self.assertEqual(IntegracaoGemini.objects.count(), 1)
         self.assertFalse(IntegracaoGemini.objects.filter(workspace=self.a).exists())
 

@@ -69,10 +69,14 @@ class WorkspaceOwned(models.Model):
     class Meta:
         abstract = True
 class IntegracaoGemini(models.Model):
-    # "groq" só identifica credenciais antigas, que não são mais usadas.
-    PROVEDORES = [("gemini", "Gemini"), ("groq", "Groq (antigo, não usado)")]
+    # "gemini" e "groq" só identificam credenciais antigas, que não são mais usadas.
+    PROVEDORES = [
+        ("openrouter", "OpenRouter"),
+        ("gemini", "Gemini (antigo, não usado)"),
+        ("groq", "Groq (antigo, não usado)"),
+    ]
 
-    provedor = models.CharField(max_length=20, choices=PROVEDORES, default="gemini")
+    provedor = models.CharField(max_length=20, choices=PROVEDORES, default="openrouter")
     workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE)
     credencial = models.BinaryField(editable=False)
     pesquisa_web = models.BooleanField(default=False)

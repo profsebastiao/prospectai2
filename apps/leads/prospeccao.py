@@ -234,7 +234,7 @@ def ranquear(dados, fontes, criterios):
         palavras_evidencia = {palavra.rstrip("s") for palavra in re.findall(r"\w+", evidencia)}
         compatibilidade = len(palavras_servico & palavras_evidencia)
         direta = INTENCAO.search(evidencia) and compatibilidade
-        if fonte.get("origem") in {"groq", "gemini", "web"} and not re.search(r'["“«].+["”»]', registro["evidencia"]):
+        if fonte.get("origem") in {"groq", "gemini", "openrouter", "web"} and not re.search(r'["“«].+["”»]', registro["evidencia"]):
             direta = False
         if tipo == "demanda" and not direta:
             tipo = "insuficiente"

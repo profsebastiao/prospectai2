@@ -195,8 +195,8 @@ class ProspeccaoIATests(TestCase):
     @patch("apps.leads.prospeccao.buscar", side_effect=BuscaIndisponivel("Busca não configurada."))
     def test_falha_busca_e_fluxos_existentes(self, busca):
         IntegracaoGemini.objects.create(
-            workspace=self.marcenaria, credencial=b"nao-utilizada", limite_diario=10, provedor="gemini",
-            pesquisa_web=True, modelo_pesquisa="gemini-3.8-flash",
+            workspace=self.marcenaria, credencial=b"nao-utilizada", limite_diario=10, provedor="openrouter",
+            pesquisa_web=True, modelo_pesquisa="openrouter/free",
         )
         url = reverse("prospeccao_iniciar", args=["oportunidades"])
         response = self.client.post(url, self.campos(self.marcenaria, self.cozinha, acao="web"), follow=True)
@@ -232,7 +232,7 @@ class ProspeccaoIATests(TestCase):
         response = self.client.post(url, {**dados, **self.evidencias([{"url": "https://instagram.com/cafeaurora"}])})
         self.assertContains(response, "Um link sozinho não foi consultado.")
         response = self.client.post(url, {**dados, "acao": "web"})
-        self.assertContains(response, "Conecte o Gemini")
+        self.assertContains(response, "Conecte o OpenRouter")
         busca.assert_not_called()
         ia.assert_not_called()
         self.assertFalse(PesquisaProspeccao.objects.exists())

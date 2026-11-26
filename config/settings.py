@@ -158,8 +158,9 @@ LOGOUT_REDIRECT_URL = '/login/'
 
 # Prospecção. O ambiente do processo Django fornece as credenciais.
 GEMINI_ENCRYPTION_KEYS = os.environ.get("GEMINI_ENCRYPTION_KEYS", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-# Usados em ordem quando o modelo principal está sobrecarregado (HTTP 503).
-GEMINI_FALLBACK_MODELS = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3.6-flash,gemini-3.5-flash-lite")
+# OpenRouter: openrouter/free escolhe um modelo gratuito a cada chamada.
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/free")
+# Reservas opcionais (separadas por vírgula), usadas pelo OpenRouter se o principal falhar.
+OPENROUTER_FALLBACK_MODELS = os.environ.get("OPENROUTER_FALLBACK_MODELS", "")
 IA_COMPANY_DAILY_LIMIT = os.environ.get("IA_COMPANY_DAILY_LIMIT", "10")
 IA_GLOBAL_DAILY_LIMIT = os.environ.get("IA_GLOBAL_DAILY_LIMIT", "100")

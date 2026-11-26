@@ -34,15 +34,15 @@ def _auditar(request, evento):
 def _estado(request, aviso="", sucesso=False):
     workspace = request.workspace
     config = status_ia(workspace.pk)
-    gemini = info()
-    antiga = bool(config) and config["provedor"] != "gemini"
+    provedor = info()
+    antiga = bool(config) and config["provedor"] != "openrouter"
     return render(request, "integracao_ia.html", {
         "config": config, "aviso": aviso, "sucesso": sucesso,
-        "ia": gemini, "credencial_antiga": antiga,
+        "ia": provedor, "credencial_antiga": antiga,
         "pode_gerenciar": pode_gerenciar_ia(request.user, workspace),
         "web_habilitada": web_habilitada(config),
-        "busca_web_disponivel": gemini["busca_disponivel"] and not antiga,
-        "modelo": gemini["modelo"],
+        "busca_web_disponivel": provedor["busca_disponivel"] and not antiga,
+        "modelo": provedor["modelo"],
         "limite_global": limite_global(),
         "primeiro": request.GET.get("primeiro") == "1",
     })
@@ -88,18 +88,18 @@ def integracao_ia(request):
     try:
         if acao in {"testar_nova", "salvar"}:
             if not re.fullmatch(r"[\x21-\x7e]{1,4096}", chave):
-                return _estado(request, "Cole somente a chave copiada do Google AI Studio, sem espaços ou quebras de linha.")
+                return _estado(request, "Cole somente a chave copiada do OpenRouter, sem espaços ou quebras de linha.")
             limite = atual.limite_diario if atual else limite_padrao()
             cifra = criptografar(request.workspace.pk, chave) if acao == "salvar" else None
             testar_chave(request.workspace.pk, chave, limite)
             if acao == "testar_nova":
                 return _estado(request, "Teste aprovado. Para conectar, informe a chave novamente e escolha Testar e salvar.", True)
             _alterar(
-                request, atual, "gemini_substituida" if atual else "gemini_conectada",
-                provedor="gemini", credencial=cifra, pesquisa_web=False, modelo_pesquisa="",
+                request, atual, "openrouter_substituida" if atual else "openrouter_conectada",
+                provedor="openrouter", credencial=cifra, pesquisa_web=False, modelo_pesquisa="",
                 limite_diario=limite, ultimo_teste=timezone.now(), status_teste="valida",
             )
-            messages.success(request, "Gemini conectado para esta empresa.")
+            messages.success(request, "OpenRouter conectado para esta empresa.")
         elif not atual:
             return _estado(request, SEM_CHAVE)
         elif acao == "remover":
@@ -117,20 +117,20 @@ def integracao_ia(request):
                 return _estado(request, "Informe um limite diário positivo que não ultrapasse o teto global do servidor.")
             _alterar(request, atual, "limite_alterado", limite_diario=int(raw))
             messages.success(request, "Limite diário atualizado.")
-        elif atual.provedor != "gemini":
-            return _estado(request, "A credencial salva é antiga e não é mais usada. Cole uma chave do Gemini e clique em Testar e substituir.")
+        elif atual.provedor != "openrouter":
+            return _estado(request, "A credencial salva é antiga e não é mais usada. Cole uma chave do OpenRouter e clique em Testar e substituir.")
         elif acao == "web_off":
             _alterar(request, atual, "busca_web_desativada", pesquisa_web=False, modelo_pesquisa="")
             messages.success(request, "Busca na web desativada.")
         elif acao == "web_on":
             if request.POST.get("autorizar_web") != "1":
                 return _estado(request, "Confirme que a busca na web está autorizada para a conta de IA da empresa.")
-            gemini = info()
-            if not gemini["busca_disponivel"]:
-                return _estado(request, "O modelo configurado não oferece a busca no Google.")
+            provedor = info()
+            if not provedor["busca_disponivel"]:
+                return _estado(request, "O modelo configurado não está válido para a busca na web.")
             chave = descriptografar(atual)
             testar_chave(request.workspace.pk, chave, atual.limite_diario, web=True)
-            _alterar(request, atual, "busca_web_habilitada", pesquisa_web=True, modelo_pesquisa=gemini["modelo"])
+            _alterar(request, atual, "busca_web_habilitada", pesquisa_web=True, modelo_pesquisa=provedor["modelo"])
             messages.success(request, "Busca na web testada e habilitada para esta empresa.")
         else:
             chave = descriptografar(atual)
@@ -144,7 +144,7 @@ def integracao_ia(request):
             IntegracaoGemini.objects.filter(pk=atual.pk, versao=atual.versao).update(
                 ultimo_teste=timezone.now(), status_teste="valida",
             )
-            messages.success(request, "A chave do Gemini salva tem acesso ao modelo configurado.")
+            messages.success(request, "A chave do OpenRouter salva tem acesso ao modelo configurado.")
     except (IAIndisponivel, CredencialIndisponivel) as exc:
         return _estado(request, str(exc))
     return redirect("integracao_ia")

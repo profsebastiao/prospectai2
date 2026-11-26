@@ -67,7 +67,7 @@ try {
         if ($env:GEMINI_ENCRYPTION_KEYS) {
             Write-Host "O ProspectAI já está aberto. Para carregar uma chave mestre alterada, encerre o servidor e execute novamente."
         } else {
-            Write-Host "O ProspectAI já está aberto. A integração Gemini pode ser carregada ao reiniciar o servidor com a chave mestre."
+            Write-Host "O ProspectAI já está aberto. A integração OpenRouter pode ser carregada ao reiniciar o servidor com a chave mestre."
         }
         Write-Host "Para carregar atualizações do código, execute Parar-ProspectAI.cmd e depois este lançador de novo." -ForegroundColor Yellow
         Open-ProspectAI
@@ -94,17 +94,17 @@ try {
     }
     if (-not $keyring) {
         while ($true) {
-            $secureMaster = Read-Host "Chave mestre AES-256 em Base64 (nao e a chave do Gemini; Enter inicia sem IA)" -AsSecureString
+            $secureMaster = Read-Host "Chave mestre AES-256 em Base64 (nao e a chave do OpenRouter; Enter inicia sem IA)" -AsSecureString
             $keyring = [System.Net.NetworkCredential]::new("", $secureMaster).Password
             Remove-Variable secureMaster -ErrorAction SilentlyContinue
             if (-not $keyring) { break }
-            if ($keyring.StartsWith("AIza") -or $keyring.StartsWith("gsk_")) {
-                Write-Host "Essa e a chave da API do Gemini. Digite a chave mestre de criptografia neste prompt; a chave do Gemini e cadastrada dentro do ProspectAI depois que ele abrir." -ForegroundColor Yellow
+            if ($keyring.StartsWith("sk-or-") -or $keyring.StartsWith("AIza") -or $keyring.StartsWith("gsk_")) {
+                Write-Host "Essa e a chave da API de IA. Digite a chave mestre de criptografia neste prompt; a chave do OpenRouter e cadastrada dentro do ProspectAI depois que ele abrir." -ForegroundColor Yellow
                 $keyring = $null
                 continue
             }
             if (Test-AIKeyring $keyring) { break }
-            Write-Host "Formato incorreto. Use a chave mestre Base64 de 32 bytes guardada anteriormente. A chave do Gemini nao serve aqui." -ForegroundColor Yellow
+            Write-Host "Formato incorreto. Use a chave mestre Base64 de 32 bytes guardada anteriormente. A chave do OpenRouter nao serve aqui." -ForegroundColor Yellow
             $keyring = $null
         }
     }
@@ -113,7 +113,7 @@ try {
     Remove-Variable secureMaster -ErrorAction SilentlyContinue
     $keyring = $null
 
-    if (-not $env:GEMINI_MODEL) { $env:GEMINI_MODEL = "gemini-3.8-flash" }
+    if (-not $env:OPENROUTER_MODEL) { $env:OPENROUTER_MODEL = "openrouter/free" }
     if (-not $env:IA_COMPANY_DAILY_LIMIT) { $env:IA_COMPANY_DAILY_LIMIT = "10" }
     if (-not $env:IA_GLOBAL_DAILY_LIMIT) { $env:IA_GLOBAL_DAILY_LIMIT = "100" }
 
@@ -140,7 +140,7 @@ try {
     if ($env:GEMINI_ENCRYPTION_KEYS) {
         Write-Host "ProspectAI iniciado. A chave mestre permanece apenas no ambiente do processo do servidor."
     } else {
-        Write-Host "ProspectAI iniciado para o CRM. O Gemini fica desconectado até reiniciar com a chave mestre."
+        Write-Host "ProspectAI iniciado para o CRM. O OpenRouter fica desconectado até reiniciar com a chave mestre."
     }
 } catch {
     Write-Host $_.Exception.Message -ForegroundColor Red
