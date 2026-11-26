@@ -42,7 +42,8 @@ MODELO_INDISPONIVEL = (
 )
 ACESSO_NEGADO = "O Google negou o acesso desta chave à API Gemini."
 PASSAGEIROS = {500, 502, 503, 504}
-ESPERAS = (2, 5)  # segundos entre novas tentativas em erros passageiros do Google
+ESPERAS = (2,)  # segundos antes de repetir no mesmo modelo, em erros passageiros do Google
+BLOQUEADA = "O Gemini bloqueou a resposta por segurança. Revise as evidências e tente novamente."
 
 
 def _abrir(requisicao):
@@ -56,16 +57,32 @@ def _abrir(requisicao):
                 raise
             logger.warning("Gemini: http=%s nova tentativa em %ss", exc.code, espera)
             time.sleep(espera)
-BLOQUEADA = "O Gemini bloqueou a resposta por segurança. Revise as evidências e tente novamente."
 
 
-def modelo_configurado():
-    modelo = str(getattr(settings, "GEMINI_MODEL", "") or "").strip()
+def _limpar_modelo(nome):
+    modelo = str(nome or "").strip()
     if modelo.startswith("models/"):
         modelo = modelo[len("models/"):]
     if not re.fullmatch(r"[a-z0-9][a-z0-9.\-]{0,99}", modelo, re.I) or ".." in modelo:
+        return ""
+    return modelo
+
+
+def modelo_configurado():
+    modelo = _limpar_modelo(getattr(settings, "GEMINI_MODEL", ""))
+    if not modelo:
         raise IAIndisponivel(MODELO_INDISPONIVEL, "modelo")
     return modelo
+
+
+def modelos_em_ordem():
+    """Modelo principal seguido dos reservas (GEMINI_FALLBACK_MODELS), usados quando o principal está sobrecarregado."""
+    modelos = [modelo_configurado()]
+    for nome in str(getattr(settings, "GEMINI_FALLBACK_MODELS", "") or "").split(","):
+        modelo = _limpar_modelo(nome)
+        if modelo and modelo not in modelos:
+            modelos.append(modelo)
+    return modelos[:4]
 
 
 def busca_disponivel():
@@ -140,7 +157,7 @@ def _json(texto):
 
 @sensitive_variables()
 def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=False, max_tokens=8192):
-    modelo = modelo_configurado()
+    modelos = modelos_em_ordem()
     if schema:
         instrucao = (
             f"{instrucao}\n\nResponda somente com um objeto JSON válido, sem nenhum texto fora dele, "
@@ -157,20 +174,28 @@ def _enviar(workspace_id, chave, limite, instrucao, dados, *, schema=None, web=F
         }
     if web:
         corpo["tools"] = [{"google_search": {}}]
-    requisicao = Request(
-        f"{API}/{quote(modelo, safe='.-')}:generateContent",
-        data=json.dumps(corpo, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "x-goog-api-key": chave,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": USER_AGENT,
-        },
-        method="POST",
-    )
+    dados_json = json.dumps(corpo, ensure_ascii=False).encode("utf-8")
+    cabecalhos = {
+        "x-goog-api-key": chave,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
     reservar_chamada(workspace_id, limite)
     try:
-        bruto = _abrir(requisicao)
+        for posicao, modelo in enumerate(modelos):
+            requisicao = Request(
+                f"{API}/{quote(modelo, safe='.-')}:generateContent",
+                data=dados_json, headers=cabecalhos, method="POST",
+            )
+            try:
+                bruto = _abrir(requisicao)
+                break
+            except HTTPError as exc:
+                ultimo = posicao == len(modelos) - 1
+                if exc.code not in PASSAGEIROS or ultimo:
+                    raise
+                logger.warning("Gemini: modelo=%s http=%s usando reserva %s", modelo, exc.code, modelos[posicao + 1])
         if chave.encode() in bruto:
             raise ValueError("secret echoed")
         resposta = json.loads(bruto)

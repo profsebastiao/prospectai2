@@ -14,6 +14,7 @@ A chave fica criptografada com a chave mestre (`GEMINI_ENCRYPTION_KEYS`) informa
 
 ```powershell
 $env:GEMINI_MODEL = "gemini-3.8-flash"   # modelo usado nas chamadas
+$env:GEMINI_FALLBACK_MODELS = "gemini-3.6-flash,gemini-3.5-flash-lite"  # reservas se o principal estiver sobrecarregado
 $env:IA_COMPANY_DAILY_LIMIT = "10"       # limite diário inicial de cada empresa
 $env:IA_GLOBAL_DAILY_LIMIT = "100"       # teto diário somando todas as empresas
 ```

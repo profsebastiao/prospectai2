@@ -189,7 +189,8 @@ class TelaIntegracaoGeminiTests(TestCase):
         self.assertEqual(IntegracaoGemini.objects.get(workspace=self.ws).provedor, "groq")
 
 
-@override_settings(GEMINI_ENCRYPTION_KEYS=AES, GEMINI_MODEL="gemini-3.8-flash", IA_COMPANY_DAILY_LIMIT=5)
+@override_settings(GEMINI_ENCRYPTION_KEYS=AES, GEMINI_MODEL="gemini-3.8-flash", IA_COMPANY_DAILY_LIMIT=5,
+                   GEMINI_FALLBACK_MODELS="")
 class GeminiTentativasTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -219,7 +220,7 @@ class GeminiTentativasTests(TestCase):
         with self.assertRaises(IAIndisponivel) as ctx:
             ia.gerar(self.ws.pk, "x", {})
         self.assertIn("overloaded", str(ctx.exception))
-        self.assertEqual(opener.return_value.open.call_count, 3)
+        self.assertEqual(opener.return_value.open.call_count, 2)
 
     @patch("apps.leads.gemini.build_opener")
     def test_erro_de_certificado_explicado(self, opener):
@@ -227,3 +228,26 @@ class GeminiTentativasTests(TestCase):
         opener.return_value.open.side_effect = URLError(Exception("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"))
         with self.assertRaisesMessage(IAIndisponivel, "certificado SSL"):
             ia.gerar(self.ws.pk, "x", {})
+
+
+    @patch("apps.leads.gemini.time.sleep")
+    @patch("apps.leads.gemini.build_opener")
+    def test_usa_modelo_reserva_quando_principal_esta_sobrecarregado(self, opener, dormir):
+        usados = []
+
+        def abrir(req, timeout=None):
+            usados.append(req.full_url.rsplit("/", 1)[-1])
+            if "gemini-3.8-flash" in req.full_url:
+                raise HTTPError("https://x", 503, "x", {}, io.BytesIO(
+                    b'{"error":{"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}'
+                ))
+            return resposta_http(ok('{"ok": true}'))
+
+        opener.return_value.open.side_effect = abrir
+        with self.settings(GEMINI_FALLBACK_MODELS="gemini-3.6-flash, gemini-3.5-flash-lite"):
+            self.assertEqual(ia.gerar(self.ws.pk, "x", {}), {"ok": True})
+        self.assertEqual(usados, [
+            "gemini-3.8-flash:generateContent", "gemini-3.8-flash:generateContent", "gemini-3.6-flash:generateContent",
+        ])
+        from apps.leads.models import LimiteGemini
+        self.assertEqual(LimiteGemini.objects.get(escopo=f"ia:empresa:{self.ws.pk}").chamadas, 1)
