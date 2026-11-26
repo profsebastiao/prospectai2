@@ -322,3 +322,18 @@ class ProspeccaoIATests(TestCase):
         instrucao = gerar.call_args.args[1]
         self.assertIn("CLIENTES", instrucao)
         self.assertIn("nunca agências", instrucao)
+
+    @patch("config.prospeccao_views.analisar_ia", return_value={"oportunidades": []})
+    def test_lista_de_links_do_linktree_e_aceita(self, ia):
+        url = reverse("prospeccao_iniciar", args=["oportunidades"])
+        links = (
+            "https://www.google.com/maps/place/Evolusom/@-7.1,-34.8,17z\n"
+            "https://api.whatsapp.com/send/?phone=5583996112970&text&type=phone_number\n"
+            "https://www.instagram.com/equipadoraevolusom/"
+        )
+        resposta = self.client.post(url, {
+            **self.campos(self.marcenaria, self.cozinha, acao="manual"),
+            **self.evidencias([{"content": links}]),
+        })
+        self.assertNotContains(resposta, "parece só um nome", status_code=302)
+        self.assertEqual(resposta.status_code, 302)

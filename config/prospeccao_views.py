@@ -142,7 +142,12 @@ class EvidenciaForm(forms.Form):
 
     def clean_content(self):
         texto = self.cleaned_data["content"].strip()
-        if texto and (len(texto.split()) < 4 or PERFIL_OU_LINK.search(texto) and len(texto.split()) < 6):
+        links = re.findall(r"https?://\S+", texto)
+        palavras = re.sub(r"https?://\S+", " ", texto).split()
+        # Uma lista de links (ex.: botões do Linktree) é evidência dos canais da empresa.
+        so_um_nome = not links and (len(palavras) < 4 or PERFIL_OU_LINK.search(texto) and len(palavras) < 6)
+        um_link_solto = len(links) == 1 and len(palavras) < 3
+        if texto and (so_um_nome or um_link_solto):
             raise forms.ValidationError(
                 "Isto parece só um nome, @perfil ou link. Cole o texto que aparece na página "
                 "(a bio do perfil, um post, um anúncio ou uma avaliação), com pelo menos uma frase."
