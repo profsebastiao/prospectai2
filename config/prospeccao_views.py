@@ -139,6 +139,15 @@ class EvidenciaForm(forms.Form):
         widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
     )
 
+    def clean_content(self):
+        texto = self.cleaned_data["content"].strip()
+        if texto and (len(texto.split()) < 4 or PERFIL_OU_LINK.search(texto) and len(texto.split()) < 6):
+            raise forms.ValidationError(
+                "Isto parece só um nome, @perfil ou link. Cole o texto que aparece na página "
+                "(a bio do perfil, um post, um anúncio ou uma avaliação), com pelo menos uma frase."
+            )
+        return texto
+
     def clean_url(self):
         url = self.cleaned_data["url"]
         if url and not url.lower().startswith(("https://", "http://")):
@@ -289,6 +298,11 @@ def iniciar(request, modo):
                     existentes = scoped_queryset(request, PesquisaProspeccao).filter(chave=chave)
                     registro = existentes.first()
                     if registro and not registro.avisos:
+                        messages.info(
+                            request,
+                            "Esta análise já tinha sido feita com os mesmos critérios e evidências. "
+                            "Mostrando o resultado anterior; mude ou acrescente evidências para uma nova análise.",
+                        )
                         return redirect("prospeccao_pesquisa", pk=registro.pk)
                     fontes, avisos, widget = (
                         coletar(consultas, request.workspace.pk) if acao == "web"

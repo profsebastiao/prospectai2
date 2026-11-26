@@ -290,3 +290,15 @@ class ProspeccaoIATests(TestCase):
             **{"criterios-ramo": "Agência de marketing digital", "criterios-regiao": "João Pessoa - PB"},
         ))
         self.assertNotContains(resposta, "parece um @perfil ou um link")
+
+    @patch("config.prospeccao_views.analisar_ia")
+    def test_evidencia_so_com_nome_nao_gasta_chamada(self, ia):
+        url = reverse("prospeccao_iniciar", args=["oportunidades"])
+        for trecho in ("equipadoraevolusom", "@equipadoraevolusom", "https://instagram.com/equipadoraevolusom"):
+            resposta = self.client.post(url, {
+                **self.campos(self.marcenaria, self.cozinha, acao="manual"),
+                **self.evidencias([{"content": trecho}]),
+            })
+            self.assertContains(resposta, "parece só um nome")
+        ia.assert_not_called()
+        self.assertContains(resposta, "data-aguarde=")
