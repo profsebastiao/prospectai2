@@ -129,8 +129,13 @@ ESQUEMAS = {
 }
 INSTRUCOES = {
     "consultas": (
-        "Sugira de três a cinco consultas de busca em português, específicas para região, público e serviços fornecidos. "
-        "Inclua exemplos para demanda pública, clientes compatíveis e possíveis parceiros. Apenas sugira consultas."
+        "A empresa (ramo informado) quer encontrar CLIENTES do perfil informado na região informada. "
+        "Escreva de três a cinco buscas curtas para digitar no Google, em português, com 3 a 8 palavras cada. "
+        "As buscas devem encontrar os negócios do perfil de cliente ou pessoas pedindo o serviço, nunca agências ou "
+        "concorrentes da empresa. Misture: negócios do perfil na região (ex.: 'som automotivo João Pessoa instagram'), "
+        "pedidos de indicação ou orçamento (ex.: 'indicação site oficina João Pessoa') e avaliações ou perfis no Google "
+        "Maps (ex.: 'loja som automotivo João Pessoa avaliações'). Use os serviços só como pista do que procurar. "
+        "Não escreva IDs, números de serviço, explicações nem o nome da empresa. Apenas as buscas."
     ),
     "oportunidades": (
         "Selecione somente resultados compatíveis com a região e o perfil comercial, associados a um serviço do catálogo. "
@@ -170,14 +175,22 @@ def analisar_ia(modo, criterios, fontes, destinatario="", *, workspace_id):
     return resposta
 
 
+def _limpar_consulta(texto):
+    """Deixa a consulta pronta para o Google: sem IDs internos, numeração ou aspas em volta."""
+    texto = re.sub(r"\(\s*ID\s*\d+\s*\)|\bID\s*\d+\b", " ", texto, flags=re.I)
+    texto = re.sub(r"^\s*(?:\d+[.)]|[-•*])\s*", "", texto)
+    texto = texto.strip().strip("\"'“”‘’").strip()
+    return " ".join(texto.split())
+
+
 def sugerir_consultas(criterios, workspace_id):
     dados = analisar_ia("consultas", criterios, [], workspace_id=workspace_id)
     consultas = dados.get("consultas")
     if not isinstance(consultas, list):
         raise IAIndisponivel("A IA não devolveu sugestões válidas.")
     consultas = list(dict.fromkeys(
-        texto.strip() for texto in consultas[:5]
-        if isinstance(texto, str) and 5 <= len(texto.strip()) <= 240
+        texto for texto in (_limpar_consulta(item) for item in consultas[:5] if isinstance(item, str))
+        if 5 <= len(texto) <= 160
     ))
     if not consultas:
         raise IAIndisponivel("A IA não devolveu sugestões válidas.")

@@ -302,3 +302,23 @@ class ProspeccaoIATests(TestCase):
             self.assertContains(resposta, "parece só um nome")
         ia.assert_not_called()
         self.assertContains(resposta, "data-aguarde=")
+
+    @patch("apps.leads.prospeccao.gerar")
+    def test_consultas_sugeridas_ficam_prontas_para_o_google(self, gerar):
+        from apps.leads.prospeccao import sugerir_consultas
+        gerar.return_value = {"consultas": [
+            "1. som automotivo João Pessoa instagram",
+            '"indicação site oficina João Pessoa"',
+            "Lojas de som que usam o Google Meu Negócio (ID 7) em João Pessoa",
+            "som automotivo João Pessoa instagram",
+        ]}
+        criterios = {"ramo": "Agência", "publico": "Lojas de som", "regiao": "João Pessoa",
+                     "servicos": [{"id": 7, "nome": "Google Meu Negócio"}]}
+        self.assertEqual(sugerir_consultas(criterios, self.agencia.pk), [
+            "som automotivo João Pessoa instagram",
+            "indicação site oficina João Pessoa",
+            "Lojas de som que usam o Google Meu Negócio em João Pessoa",
+        ])
+        instrucao = gerar.call_args.args[1]
+        self.assertIn("CLIENTES", instrucao)
+        self.assertIn("nunca agências", instrucao)
