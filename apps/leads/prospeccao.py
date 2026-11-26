@@ -377,7 +377,7 @@ def reportar(analise):
     if not achados:
         achados = "Não foram confirmados achados adicionais nas fontes consultadas."
     return {
-        "titulo": (f"Diagnóstico de presença digital: {analise.nome_lead}" if diagnostico
+        "titulo": (f"Diagnóstico de presença digital: {diagnostico['empresa']['nome']}" if diagnostico
                    else f"Análise comercial de {analise.nome_lead}")[:200],
         "achados": achados,
         "recomendacoes": linhas(analise.dados["recomendacoes"], service=True),

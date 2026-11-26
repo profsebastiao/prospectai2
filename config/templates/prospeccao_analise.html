@@ -1,6 +1,6 @@
 {% extends "prospeccao_base.html" %}
-{% block title %}Análise de {{ analise.nome_lead }} | ProspectAI{% endblock %}
-{% block heading %}Análise de {{ analise.nome_lead }}{% endblock %}
+{% block title %}Análise de {% firstof analise.dados.diagnostico.empresa.nome analise.nome_lead %} | ProspectAI{% endblock %}
+{% block heading %}Análise de {% firstof analise.dados.diagnostico.empresa.nome analise.nome_lead %}{% endblock %}
 {% block content %}
 {% with d=analise.dados.diagnostico %}
 {% if d %}
@@ -48,6 +48,7 @@
 {% endif %}
 {% endif %}
 {% endwith %}
+{% if not analise.dados.diagnostico %}
 <section class="panel prospecting-summary">
     <h2>Canais públicos</h2>
     <p class="record-muted">Identidade confirmada na <a href="{% url 'prospeccao_pesquisa' analise.pesquisa.pk %}">pesquisa de {{ analise.pesquisa.criado_em|date:"d/m/Y H:i" }}</a>.</p>
@@ -69,6 +70,9 @@
     <p class="record-muted">{{ analise.dados.limitacao }}</p>
     {% for fonte in analise.dados.fontes %}{% if fonte.restrita %}<p>Acesso indisponível ou restrito: {% include "prospeccao_fonte.html" with fonte=fonte only %}</p>{% endif %}{% endfor %}
 </section>
+{% else %}
+<p class="record-muted">Baseado na <a href="{% url 'prospeccao_pesquisa' analise.pesquisa.pk %}">pesquisa de {{ analise.pesquisa.criado_em|date:"d/m/Y H:i" }}</a> · {{ analise.dados.fontes|length }} evidência{{ analise.dados.fontes|length|pluralize }} usada{{ analise.dados.fontes|length|pluralize }}.</p>
+{% endif %}
 <section class="panel prospecting-summary">
     <h2>Achados</h2>
     {% for item in analise.dados.achados %}

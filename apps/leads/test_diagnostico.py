@@ -179,3 +179,22 @@ class RelatorioTodasEvidenciasTests(TestCase):
         self.assertTrue(d["empresa"]["enderecos"])
         self.assertEqual(len(analise.dados["fontes"]), 2)
         self.assertEqual(len(ia.call_args.args[2]), 2)
+
+
+class DiagnosticoAjustesTests(TestCase):
+    def test_celular_conta_como_whatsapp_citado_e_nome_fica_limpo(self):
+        texto = "Ótica Virtuosa – (83) 98875-4300 – @oticavirtuosa_ Av. Visconde de Pelotas, 162 – Centro – João Pessoa"
+        cand = candidato_manual(texto)
+        cand["nome"] = "Ótica Virtuosa – (83) 98875-4300 – @oticavirtuosa_"
+        d = diagnosticar(cand, [fonte(texto)], SERVICOS)
+        situacao = {c["codigo"]: c["situacao"] for c in d["canais"]}
+        self.assertEqual(situacao["whatsapp"], "mencionado")
+        self.assertEqual(d["empresa"]["nome"], "Ótica Virtuosa")
+        self.assertEqual(d["empresa"]["descricao"].count("Visconde de Pelotas"), 1)
+        self.assertEqual(nome_da_fonte(fonte(texto)), "Ótica Virtuosa")
+
+    def test_telefone_fixo_sem_mencao_nao_vira_whatsapp(self):
+        texto = "Loja Centro. Telefone fixo (83) 3222-1010. Rua das Trincheiras, 100 – João Pessoa"
+        d = diagnosticar(candidato_manual(texto), [fonte(texto)], SERVICOS)
+        situacao = {c["codigo"]: c["situacao"] for c in d["canais"]}
+        self.assertEqual(situacao["whatsapp"], "nao")

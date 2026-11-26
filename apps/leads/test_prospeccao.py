@@ -159,7 +159,8 @@ class ProspeccaoIATests(TestCase):
         registro = response.context["analise"]
         self.assertContains(response, "Landing pages")
         self.assertContains(response, CONTATO)
-        self.assertContains(response, "Não localizado no material fornecido")
+        self.assertContains(response, "Não encontrado")
+        self.assertNotContains(response, "Canais públicos")
         self.assertNotContains(response, "Recomendação errada")
         self.assertEqual([f["id"] for f in ia.call_args.args[2]], [1])
 

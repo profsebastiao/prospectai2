@@ -82,8 +82,18 @@ def nome_da_fonte(fonte, padrao=""):
     for linha in (fonte.get("content") or "").splitlines():
         linha = " ".join(EMOJI.sub(" ", linha).split()).strip(" -–—:|")
         if len(linha) >= 4:
-            return (linha[:77] + "…") if len(linha) > 80 else linha
+            return limpar_nome(linha)
     return padrao
+
+
+def limpar_nome(texto):
+    """Fica com o nome do negócio: corta telefone, @perfil e endereço que vierem na mesma linha."""
+    partes = [p.strip(" -–—:|·") for p in re.split(r"\s+[–—|·]\s+|\s+-\s+", texto) if p.strip(" -–—:|·")]
+    for parte in partes:
+        if not (TELEFONE.search(parte) or parte.startswith("@") or ENDERECO.match(parte) or URLS.search(parte)):
+            texto = parte
+            break
+    return (texto[:77] + "…") if len(texto) > 80 else texto
 
 
 def _google_maps(url):
@@ -104,8 +114,9 @@ def _servico_para(codigo, servicos):
 
 def diagnosticar(candidato, fontes, servicos=(), cidade=""):
     textos = [f.get("content") or "" for f in fontes]
-    if candidato.get("descricao"):
-        textos.append(candidato["descricao"])
+    descricao = (candidato.get("descricao") or "").strip()
+    if descricao and not any(descricao in t or t.strip() in descricao for t in textos if t.strip()):
+        textos.append(descricao)
     texto = "\n".join(t for t in textos if t)
     # Menções no texto são procuradas fora dos links, para "www." de um link não contar como site.
     minusculo = URLS.sub(" ", texto).casefold()
@@ -158,8 +169,12 @@ def diagnosticar(candidato, fontes, servicos=(), cidade=""):
     for numero in (candidato.get("whatsapp"), candidato.get("telefone")):
         if numero and numero not in telefones:
             telefones.insert(0, numero)
-    if not presenca["whatsapp"]["itens"] and telefones and re.search(r"whats|zap|wpp|agende|agendamento|orçamento", minusculo):
-        adicionar("whatsapp", telefones[0], "", "mencionado")
+    celulares = [t for t in telefones if re.search(r"9\s?\d{4}[-.\s]?\d{4}$", t)]
+    if not presenca["whatsapp"]["itens"] and telefones and (
+        celulares or re.search(r"whats|zap|wpp|agende|agendamento|orçamento", minusculo)
+    ):
+        # Celular divulgado costuma ser o WhatsApp da empresa, mas fica como "a confirmar".
+        adicionar("whatsapp", (celulares or telefones)[0], "", "mencionado")
     if re.search(r"\bsite\b|www\.", minusculo) and not presenca["site"]["itens"]:
         adicionar("site", "Citado no texto, sem link", "", "mencionado")
     if re.search(r"google meu neg[oó]cio|google maps|avalia[cç][oõ]es no google", minusculo) and not presenca["google"]["itens"]:
@@ -171,7 +186,7 @@ def diagnosticar(candidato, fontes, servicos=(), cidade=""):
         emails.insert(0, candidato["email"])
     primeira = fontes[0] if fontes else {}
     empresa = {
-        "nome": candidato.get("nome") or nome_da_fonte(primeira, "Empresa pesquisada"),
+        "nome": limpar_nome(candidato.get("nome") or nome_da_fonte(primeira, "Empresa pesquisada")),
         "cidade": candidato.get("cidade") or cidade,
         "enderecos": enderecos,
         "telefones": telefones,

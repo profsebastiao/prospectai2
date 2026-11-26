@@ -20,7 +20,7 @@ from apps.accounts.gemini_credentials import pode_gerenciar_ia, status_ia, web_h
 from apps.leads.ia import SEM_CHAVE, WEB_INDISPONIVEL
 from apps.leads.models import AnaliseProspeccao, Lead, PesquisaProspeccao, RelatorioProspeccao
 from apps.leads.perfis import instagram_handle, profile_identity
-from apps.leads.diagnostico import diagnosticar, nome_da_fonte
+from apps.leads.diagnostico import diagnosticar, limpar_nome, nome_da_fonte
 from apps.leads.prospeccao import (
     IAIndisponivel, analisar_candidato, analisar_ia, canais, coletar,
     consultas_oportunidades, fontes_confirmadas, identificar, normalizar, normalizar_fontes,
@@ -486,7 +486,7 @@ def _nome_empresa(fontes):
     for fonte in fontes:
         titulo = (fonte.get("title") or "").strip()
         if titulo:
-            return PREFIXOS_NOME.sub("", titulo).strip(" –-:") or titulo
+            return limpar_nome(PREFIXOS_NOME.sub("", titulo).strip(" –-:") or titulo)
     return nome_da_fonte(fontes[0], "Empresa pesquisada") if fontes else "Empresa pesquisada"
 
 
@@ -540,7 +540,7 @@ def _relatorio_oportunidade(request, registro):
         return HttpResponseBadRequest("Selecione uma oportunidade desta pesquisa.")
     resultado = registro.resultados[indice]
     fonte = resultado["fonte"]
-    nome = resultado.get("nome") or nome_da_fonte(fonte, "Empresa pesquisada")
+    nome = limpar_nome(resultado.get("nome") or nome_da_fonte(fonte, "Empresa pesquisada"))
     cidade = resultado.get("regiao") or registro.criterios.get("regiao", "")
     candidato = next(iter(identificar([fonte], cidade, nome)), None) or {
         "fonte": "", "fonte_id": fonte["id"], "nome": nome, "titulo": nome, "descricao": fonte["content"],
