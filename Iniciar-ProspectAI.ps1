@@ -1,5 +1,6 @@
 ﻿param(
-    [switch]$SkipDesktopShortcut
+    [switch]$SkipDesktopShortcut,
+    [switch]$EsquecerChave
 )
 
 $ErrorActionPreference = "Stop"
@@ -7,6 +8,27 @@ $projectDir = $PSScriptRoot
 $python = Join-Path $projectDir ".venv-windows\Scripts\python.exe"
 $baseUrl = "http://127.0.0.1:8002"
 $serverAddress = "127.0.0.1:8002"
+# Chave mestre guardada fora do projeto, criptografada pela conta do Windows (DPAPI).
+$keyFile = Join-Path $env:LOCALAPPDATA "ProspectAI\chave-mestre.dat"
+
+function Read-SavedKeyring {
+    if (-not (Test-Path -LiteralPath $keyFile -PathType Leaf)) { return $null }
+    try {
+        $secure = (Get-Content -LiteralPath $keyFile -Raw).Trim() | ConvertTo-SecureString
+        return [System.Net.NetworkCredential]::new("", $secure).Password
+    } catch {
+        Write-Host "Nao foi possivel ler a chave mestre guardada (ela so abre na mesma conta do Windows). Ela sera pedida de novo." -ForegroundColor Yellow
+        return $null
+    }
+}
+
+function Save-Keyring([string]$Value) {
+    $folder = Split-Path -Parent $keyFile
+    if (-not (Test-Path -LiteralPath $folder)) { New-Item -ItemType Directory -Path $folder -Force | Out-Null }
+    $secure = ConvertTo-SecureString $Value -AsPlainText -Force
+    $secure | ConvertFrom-SecureString | Set-Content -LiteralPath $keyFile -Encoding ASCII
+    Remove-Variable secure -ErrorAction SilentlyContinue
+}
 
 function Test-LocalProspectAI {
     try {
@@ -88,9 +110,23 @@ try {
         throw "A porta 8002 está ocupada por outro processo. Feche-o antes de iniciar o ProspectAI."
     }
 
+    if ($EsquecerChave -and (Test-Path -LiteralPath $keyFile)) {
+        Remove-Item -LiteralPath $keyFile -Force
+        Write-Host "Chave mestre guardada foi apagada deste computador."
+    }
     $keyring = $env:GEMINI_ENCRYPTION_KEYS
     if ($keyring -and -not (Test-AIKeyring $keyring)) {
         throw "GEMINI_ENCRYPTION_KEYS invalida. Ela deve conter uma chave mestre Base64 de 32 bytes, nao uma chave de API."
+    }
+    if (-not $keyring) {
+        $saved = Read-SavedKeyring
+        if ($saved -and (Test-AIKeyring $saved)) {
+            $keyring = $saved
+            Write-Host "Chave mestre carregada deste computador."
+        } elseif ($saved) {
+            Write-Host "A chave mestre guardada esta em formato invalido e sera pedida de novo." -ForegroundColor Yellow
+        }
+        $saved = $null
     }
     if (-not $keyring) {
         while ($true) {
@@ -103,7 +139,18 @@ try {
                 $keyring = $null
                 continue
             }
-            if (Test-AIKeyring $keyring) { break }
+            if (Test-AIKeyring $keyring) {
+                $resposta = Read-Host "Guardar a chave mestre neste computador para nao pedir de novo? (S/n)"
+                if (-not $resposta -or $resposta.Trim().ToLower().StartsWith("s")) {
+                    try {
+                        Save-Keyring $keyring
+                        Write-Host "Chave mestre guardada (protegida pela sua conta do Windows). Para apagar: Iniciar-ProspectAI.cmd -EsquecerChave"
+                    } catch {
+                        Write-Host "Nao foi possivel guardar a chave mestre: $($_.Exception.Message)" -ForegroundColor Yellow
+                    }
+                }
+                break
+            }
             Write-Host "Formato incorreto. Use a chave mestre Base64 de 32 bytes guardada anteriormente. A chave do OpenRouter nao serve aqui." -ForegroundColor Yellow
             $keyring = $null
         }

@@ -10,6 +10,8 @@ O ProspectAI usa a API do OpenRouter na prospecção com IA. Cada empresa conect
 
 A chave fica criptografada com a chave mestre (`GEMINI_ENCRYPTION_KEYS`, nome mantido por compatibilidade) informada ao iniciar o `Iniciar-ProspectAI.cmd`. Use sempre a mesma chave mestre.
 
+Na primeira vez, o lançador pergunta a chave mestre e oferece guardá-la neste computador. Ela fica em `%LOCALAPPDATA%\ProspectAI\chave-mestre.dat`, criptografada pela sua conta do Windows (DPAPI): só abre no mesmo usuário e no mesmo computador, e não vai para o projeto nem para o GitHub. Para apagar a chave guardada e digitar de novo, rode `Iniciar-ProspectAI.cmd -EsquecerChave`.
+
 ## Modelo
 
 O padrão é `openrouter/free`, o roteador gratuito do OpenRouter: a cada chamada ele escolhe um modelo gratuito que suporte respostas estruturadas. Modelos gratuitos têm limite de chamadas e alguns guardam os textos enviados. Para usar um modelo específico (pago ou gratuito), defina antes de iniciar:
