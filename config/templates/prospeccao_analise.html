@@ -2,10 +2,56 @@
 {% block title %}Análise de {{ analise.nome_lead }} | ProspectAI{% endblock %}
 {% block heading %}Análise de {{ analise.nome_lead }}{% endblock %}
 {% block content %}
+{% with d=analise.dados.diagnostico %}
+{% if d %}
+{% if analise.dados.aviso %}<p class="panel record-form-error" role="alert">{{ analise.dados.aviso }}</p>{% endif %}
+<section class="panel prospecting-summary diagnostico-empresa">
+    <h2>{{ d.empresa.nome }}</h2>
+    <dl class="record-facts">
+        {% if d.empresa.cidade %}<div><dt>Cidade</dt><dd>{{ d.empresa.cidade }}</dd></div>{% endif %}
+        {% for endereco in d.empresa.enderecos %}<div><dt>Endereço</dt><dd>{{ endereco }}</dd></div>{% endfor %}
+        {% if d.empresa.telefones %}<div><dt>Telefone / WhatsApp</dt><dd>{{ d.empresa.telefones|join:", " }}</dd></div>{% endif %}
+        {% if d.empresa.emails %}<div><dt>E-mail</dt><dd>{{ d.empresa.emails|join:", " }}</dd></div>{% endif %}
+    </dl>
+    {% if d.empresa.descricao %}<p class="record-muted">{{ d.empresa.descricao }}</p>{% endif %}
+</section>
+<section class="panel prospecting-summary">
+    <div class="diagnostico-cabecalho">
+        <h2>Presença digital</h2>
+        <span class="diagnostico-placar">{{ d.pontuacao.encontrados }} de {{ d.pontuacao.total }} canais essenciais</span>
+    </div>
+    <ul class="diagnostico-canais">
+        {% for canal in d.canais %}
+        <li class="diagnostico-canal diagnostico-{{ canal.situacao }}">
+            <span class="diagnostico-icone" aria-hidden="true">{% if canal.situacao == "encontrado" %}✓{% elif canal.situacao == "mencionado" %}?{% else %}✕{% endif %}</span>
+            <span class="diagnostico-nome">{{ canal.canal }}</span>
+            <span class="diagnostico-estado">{% if canal.situacao == "encontrado" %}Encontrado{% elif canal.situacao == "mencionado" %}Citado, a confirmar{% else %}Não encontrado{% endif %}</span>
+            {% if canal.itens %}<span class="diagnostico-valores">{% for item in canal.itens %}{% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.valor }}</a>{% else %}{{ item.valor }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    <p class="record-muted">{{ d.aviso }}</p>
+</section>
+{% if d.perdas %}
+<section class="panel prospecting-summary">
+    <h2>O que a empresa está deixando de ganhar</h2>
+    {% for perda in d.perdas %}
+    <article class="diagnostico-perda">
+        <h3>Sem {{ perda.canal }}</h3>
+        <p>{{ perda.texto }}</p>
+        {% if perda.servico %}<p><span class="status-tag status-positive">Como resolver</span> {{ perda.servico }}</p>{% endif %}
+    </article>
+    {% endfor %}
+</section>
+{% else %}
+<section class="panel prospecting-summary"><h2>Presença completa</h2><p>A empresa já tem os canais essenciais. Vale avaliar a qualidade de cada um (frequência de posts, avaliações, velocidade do site).</p></section>
+{% endif %}
+{% endif %}
+{% endwith %}
 <section class="panel prospecting-summary">
     <h2>Canais públicos</h2>
     <p class="record-muted">Identidade confirmada na <a href="{% url 'prospeccao_pesquisa' analise.pesquisa.pk %}">pesquisa de {{ analise.pesquisa.criado_em|date:"d/m/Y H:i" }}</a>.</p>
-    {% if analise.dados.aviso %}<p class="record-form-error" role="alert">{{ analise.dados.aviso }}</p>{% endif %}
+    {% if analise.dados.aviso and not analise.dados.diagnostico %}<p class="record-form-error" role="alert">{{ analise.dados.aviso }}</p>{% endif %}
     <dl class="record-facts">
         {% for canal in analise.dados.canais %}
         <div>
@@ -39,6 +85,6 @@
 </section>
 <form method="post">
     {% csrf_token %}
-    <button class="button primary" type="submit">Abrir relatório editável</button>
+    <button class="button primary" type="submit">Abrir relatório para revisar e baixar</button>
 </form>
 {% endblock %}

@@ -27,6 +27,7 @@
         <p>{{ item.texto }}</p>
         {% if item.evidencia %}<blockquote>{{ item.evidencia }}</blockquote>{% endif %}
         {% include "prospeccao_fonte.html" with fonte=item.fonte only %}
+        {% if perm_editar %}<div class="record-actions"><button class="button secondary" type="submit" name="relatorio" value="{{ forloop.counter0 }}" data-aguarde="Gerando relatório…">Gerar relatório da empresa</button></div>{% endif %}
         {% else %}
         <h3>{{ item.nome|default:item.titulo }}</h3>
         {% if item.fonte %}<p><a href="{{ item.fonte }}" target="_blank" rel="noopener noreferrer">{{ item.fonte }}</a></p>{% else %}<p class="record-muted">Trecho fornecido, sem link.</p>{% endif %}
@@ -62,4 +63,20 @@
     <a class="button quiet" href="{% url 'prospeccao_iniciar' pesquisa.modo %}">Nova consulta</a>
     {% endif %}
 </div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+document.querySelectorAll("form.prospecting-results").forEach(function (formulario) {
+    formulario.addEventListener("submit", function (evento) {
+        var botao = evento.submitter;
+        if (!botao || !botao.dataset.aguarde) { return; }
+        if (formulario.dataset.enviando) { evento.preventDefault(); return; }
+        formulario.dataset.enviando = "1";
+        var campo = document.createElement("input");
+        campo.type = "hidden"; campo.name = botao.name; campo.value = botao.value;
+        formulario.appendChild(campo);
+        setTimeout(function () { botao.disabled = true; botao.textContent = botao.dataset.aguarde; }, 0);
+    });
+});
+</script>
 {% endblock %}

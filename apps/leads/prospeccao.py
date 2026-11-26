@@ -5,6 +5,7 @@ from email.utils import parsedate_to_datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .busca_web import BuscaIndisponivel, buscar, candidatos
+from .diagnostico import diagnosticar, nome_da_fonte, texto_relatorio
 from .ia import IAIndisponivel, gerar
 from .perfis import domain, profile_identity, web_url
 
@@ -253,7 +254,7 @@ def ranquear(dados, fontes, criterios):
             tipo = "insuficiente"
         registro.update(
             tipo=tipo, classificacao=TIPOS[tipo],
-            nome=fonte["title"] or (domain(fonte["url"]) if fonte["url"] else f'Evidência {fonte["id"]}'),
+            nome=nome_da_fonte(fonte) or (domain(fonte["url"]) if fonte["url"] else f'Evidência {fonte["id"]}'),
             regiao=criterios["regiao"] if area and area in texto_fonte else "",
             compatibilidade=compatibilidade,
         )
@@ -264,7 +265,7 @@ def ranquear(dados, fontes, criterios):
         if fonte["id"] not in usados:
             resultados.append({
                 "tipo": "insuficiente", "classificacao": TIPOS["insuficiente"],
-                "nome": fonte["title"] or f'Evidência {fonte["id"]}', "fonte": fonte,
+                "nome": nome_da_fonte(fonte, f'Evidência {fonte["id"]}'), "fonte": fonte,
                 "servico": "", "regiao": "", "compatibilidade": 0, "evidencia": "",
                 "texto": "Não há evidência suficiente para indicar uma oportunidade.",
             })
@@ -331,11 +332,13 @@ def canais(candidato, fontes):
 def analisar_candidato(candidato, fontes, criterios, destinatario, *, workspace_id):
     fontes = fontes_confirmadas(candidato, fontes)
     inventario = canais(candidato, fontes)
+    diagnostico = diagnosticar(candidato, fontes, criterios.get("servicos"), criterios.get("cidade") or criterios.get("regiao", ""))
     # The model receives only the confirmed sources and the selected services.
     dados = analisar_ia("analise", criterios, fontes, destinatario, workspace_id=workspace_id)
     return {
         "fontes": fontes,
         "canais": inventario,
+        "diagnostico": diagnostico,
         "achados": [x for x, _ in _validar_itens(dados.get("achados"), fontes, criterios)],
         "recomendacoes": [
             x for x, _ in _validar_itens(dados.get("recomendacoes"), fontes, criterios, requer_servico=True)
@@ -358,18 +361,23 @@ def reportar(analise):
         return "\n\n".join(blocos)
 
     achados = linhas(analise.dados["achados"])
+    diagnostico = analise.dados.get("diagnostico")
     canais_confirmados = []
     for canal in analise.dados.get("canais", []):
         if canal["valores"] and canal["estado"] != "A confirmar" and canal["fontes"]:
             valores = ", ".join(canal["valores"])
             fontes = ", ".join(dict.fromkeys(canal["fontes"]))
             canais_confirmados.append(f'{canal["canal"]}: {valores}\nFonte: {fontes}')
-    if canais_confirmados:
+    if diagnostico:
+        # O diagnóstico já lista os canais; os achados da IA entram depois.
+        achados = "\n\n".join([texto_relatorio(diagnostico), *([f"OUTROS ACHADOS\n{achados}"] if achados else [])])
+    elif canais_confirmados:
         achados = "\n\n".join([*canais_confirmados, *([achados] if achados else [])])
     if not achados:
         achados = "Não foram confirmados achados adicionais nas fontes consultadas."
     return {
-        "titulo": f"Análise comercial de {analise.nome_lead}"[:200],
+        "titulo": (f"Diagnóstico de presença digital: {analise.nome_lead}" if diagnostico
+                   else f"Análise comercial de {analise.nome_lead}")[:200],
         "achados": achados,
         "recomendacoes": linhas(analise.dados["recomendacoes"], service=True),
     }

@@ -20,6 +20,7 @@ from apps.accounts.gemini_credentials import pode_gerenciar_ia, status_ia, web_h
 from apps.leads.ia import SEM_CHAVE, WEB_INDISPONIVEL
 from apps.leads.models import AnaliseProspeccao, Lead, PesquisaProspeccao, RelatorioProspeccao
 from apps.leads.perfis import instagram_handle, profile_identity
+from apps.leads.diagnostico import diagnosticar, nome_da_fonte
 from apps.leads.prospeccao import (
     IAIndisponivel, analisar_candidato, analisar_ia, canais, coletar,
     consultas_oportunidades, fontes_confirmadas, identificar, normalizar, normalizar_fontes,
@@ -401,6 +402,8 @@ def pesquisa(request, pk):
     registro = get_object_or_404(scoped_queryset(request, PesquisaProspeccao), pk=pk)
     oportunidades = registro.modo == PesquisaProspeccao.Modo.OPORTUNIDADES
     if request.method == "POST":
+        if oportunidades and "relatorio" in request.POST:
+            return _relatorio_oportunidade(request, registro)
         if oportunidades:
             indices = {
                 _indice(valor, len(registro.resultados)) for valor in request.POST.getlist("selecionados")
@@ -434,6 +437,9 @@ def pesquisa(request, pk):
             fontes = fontes_confirmadas(candidato, registro.fontes)
             dados = {
                 "aviso": str(exc), "fontes": fontes, "canais": canais(candidato, fontes),
+                "diagnostico": diagnosticar(
+                    candidato, fontes, registro.criterios.get("servicos"), registro.criterios.get("cidade", ""),
+                ),
                 "achados": [], "recomendacoes": [],
                 "limitacao": "A análise está limitada às evidências selecionadas; links informados não foram abertos.",
             }
@@ -455,6 +461,51 @@ def pesquisa(request, pk):
         "pesquisa": registro, "oportunidades": oportunidades,
         "analises": scoped_queryset(request, AnaliseProspeccao).filter(pesquisa=registro).order_by("-pk"),
     })
+
+
+def _relatorio_oportunidade(request, registro):
+    """Gera (ou reabre) o diagnóstico e o relatório da empresa de uma oportunidade."""
+    indice = _indice(request.POST.get("relatorio", ""), len(registro.resultados))
+    if indice is None:
+        return HttpResponseBadRequest("Selecione uma oportunidade desta pesquisa.")
+    resultado = registro.resultados[indice]
+    fonte = resultado["fonte"]
+    nome = resultado.get("nome") or nome_da_fonte(fonte, "Empresa pesquisada")
+    cidade = resultado.get("regiao") or registro.criterios.get("regiao", "")
+    candidato = next(iter(identificar([fonte], cidade, nome)), None) or {
+        "fonte": "", "fonte_id": fonte["id"], "nome": nome, "titulo": nome, "descricao": fonte["content"],
+        "cidade": cidade, "perfis": [], "principal": None, "links": [], "email": "", "telefone": "", "whatsapp": "",
+    }
+    candidato["nome"] = nome
+    candidato.setdefault("descricao", fonte["content"])
+    if not candidato.get("fonte_id") and not fonte["url"]:
+        candidato["fonte_id"] = fonte["id"]
+    chave = _chave("relatorio", indice)
+    anteriores = scoped_queryset(request, AnaliseProspeccao).filter(pesquisa=registro, chave=chave)
+    existente = anteriores.first()
+    if existente and not existente.dados.get("aviso"):
+        return redirect("prospeccao_analise", pk=existente.pk)
+    criterios = {**registro.criterios, "cidade": cidade}
+    try:
+        dados = analisar_candidato(candidato, registro.fontes, criterios, "", workspace_id=request.workspace.pk)
+    except IAIndisponivel as exc:
+        fontes = fontes_confirmadas(candidato, registro.fontes)
+        dados = {
+            "aviso": f"{exc} O diagnóstico de presença digital abaixo foi feito sem a IA.",
+            "fontes": fontes, "canais": canais(candidato, fontes),
+            "diagnostico": diagnosticar(candidato, fontes, registro.criterios.get("servicos"), cidade),
+            "achados": [], "recomendacoes": [],
+            "limitacao": "A análise está limitada às evidências selecionadas; links informados não foram abertos.",
+        }
+    if existente:
+        anteriores.update(dados=dados)
+        analise = existente
+    else:
+        analise, _ = AnaliseProspeccao.objects.get_or_create(
+            pesquisa=registro, chave=chave,
+            defaults={"candidato": indice, "dados": dados, "nome_lead": nome[:200]},
+        )
+    return redirect("prospeccao_analise", pk=analise.pk)
 
 
 @login_required

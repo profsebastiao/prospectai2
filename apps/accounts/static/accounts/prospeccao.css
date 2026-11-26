@@ -21,3 +21,19 @@
 .prospecting-query-text { flex: 1 1 260px; }
 .prospecting-query-actions { display: flex; gap: 6px; }
 @media (max-width: 760px) { .prospecting-steps { grid-template-columns: 1fr; } }
+.diagnostico-cabecalho { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.diagnostico-placar { padding: 3px 10px; border-radius: 999px; background: var(--purple-soft); color: var(--purple-dark); font-size: .85rem; font-weight: 650; }
+.diagnostico-canais { margin: 8px 0; padding: 0; list-style: none; }
+.diagnostico-canal { display: grid; grid-template-columns: 26px minmax(140px, 220px) 150px 1fr; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.diagnostico-icone { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: .8rem; font-weight: 700; color: #fff; }
+.diagnostico-encontrado .diagnostico-icone { background: #2f9e6e; }
+.diagnostico-mencionado .diagnostico-icone { background: #c58a1a; }
+.diagnostico-nao .diagnostico-icone { background: #c94a4a; }
+.diagnostico-nome { font-weight: 650; }
+.diagnostico-estado { color: var(--muted); font-size: .9rem; }
+.diagnostico-valores { overflow-wrap: anywhere; font-size: .9rem; }
+.diagnostico-perda { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.diagnostico-perda:last-child { border-bottom: 0; }
+.diagnostico-perda h3 { margin: 0 0 4px; }
+@media (max-width: 700px) { .diagnostico-canal { grid-template-columns: 26px 1fr; } .diagnostico-estado, .diagnostico-valores { grid-column: 2; } }
+
