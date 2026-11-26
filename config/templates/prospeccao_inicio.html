@@ -9,6 +9,13 @@
 {% endif %}
 <form method="post" class="panel record-form">
     {% csrf_token %}
+    {% if oportunidades %}
+    <ol class="prospecting-steps" aria-label="Como funciona">
+        <li><strong>Descreva sua empresa</strong><span>Ramo, tipo de cliente que você quer e região. Clique em <em>Sugerir consultas</em>.</span></li>
+        <li><strong>Pesquise</strong><span>Abra cada consulta no Google, encontre posts, anúncios ou perfis e copie os trechos.</span></li>
+        <li><strong>Cole e analise</strong><span>Cole os trechos em <em>Evidências</em> e clique em <em>Analisar evidências</em>.</span></li>
+    </ol>
+    {% endif %}
     {% if identidade %}
     <h2>Identificar o lead</h2>
     {% include "record_fields.html" with form=identidade only %}
@@ -26,12 +33,23 @@
     {% if sugestoes %}
     <section class="prospecting-criteria" aria-label="Consultas sugeridas">
         <h2>Consultas sugeridas</h2>
-        <ul>{% for consulta in sugestoes %}<li>{{ consulta }}</li>{% endfor %}</ul>
+        <p class="record-muted">Abra no Google, leia os resultados e copie os trechos que mostram uma necessidade ou um possível cliente.</p>
+        <ul class="prospecting-queries">
+            {% for consulta in sugestoes %}
+            <li>
+                <span class="prospecting-query-text">{{ consulta }}</span>
+                <span class="prospecting-query-actions">
+                    <a class="button secondary" href="https://www.google.com/search?q={{ consulta|urlencode }}" target="_blank" rel="noopener noreferrer">Pesquisar no Google</a>
+                    <button class="button quiet" type="button" data-copiar="{{ consulta }}">Copiar</button>
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
     </section>
     {% endif %}
     <section class="prospecting-criteria" aria-labelledby="evidencias-title">
         <h2 id="evidencias-title">Evidências públicas</h2>
-        <p class="record-muted">Cole os trechos que encontrou e informe os links, se houver. Os links colados não são abertos automaticamente. Use somente material público e retire informações confidenciais.</p>
+        <p class="record-muted">Cole os trechos que encontrou (até {{ evidencias.max_num }}). O trecho é o que importa: links colados não são abertos automaticamente. Use somente material público e retire informações confidenciais.</p>
         {% if not web_habilitada %}<p class="record-muted">Busca na web do {{ ia_nome }} desativada. A análise usa somente os trechos fornecidos.</p>{% endif %}
         {{ evidencias.management_form }}
         {{ evidencias.non_form_errors }}
@@ -48,4 +66,28 @@
         <a class="button secondary" href="{% url 'gestao_lista' 'leads' %}">Voltar a Leads</a>
     </div>
 </form>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+document.querySelectorAll("[data-copiar]").forEach(function (botao) {
+    botao.addEventListener("click", function () {
+        var texto = botao.getAttribute("data-copiar");
+        var pronto = function () {
+            var original = botao.textContent;
+            botao.textContent = "Copiado";
+            setTimeout(function () { botao.textContent = original; }, 1500);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(texto).then(pronto);
+        } else {
+            var campo = document.createElement("textarea");
+            campo.value = texto;
+            document.body.appendChild(campo);
+            campo.select();
+            try { document.execCommand("copy"); pronto(); } catch (e) {}
+            campo.remove();
+        }
+    });
+});
+</script>
 {% endblock %}

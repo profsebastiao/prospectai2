@@ -1,3 +1,4 @@
+import re
 import hashlib
 import json
 
@@ -35,11 +36,29 @@ CRITERIOS = {
 }
 
 
+PERFIL_OU_LINK = re.compile(r"^\s*@|https?://|www\.|^[\w.\-]*[._][\w.\-]*$", re.I)
+
+
 class CriteriosForm(forms.Form):
-    ramo = forms.CharField(label="Ramo de atuação", max_length=150)
-    publico = forms.CharField(label="Perfil de cliente desejado", max_length=250)
-    regiao = forms.CharField(label="Região atendida", max_length=150)
-    servicos = forms.ModelMultipleChoiceField(label="Serviços do catálogo", queryset=Servico.objects.none(), widget=forms.CheckboxSelectMultiple)
+    ramo = forms.CharField(
+        label="Ramo de atuação da sua empresa", max_length=150,
+        help_text="O que a sua empresa faz. Não é o nome nem o @ de um cliente.",
+        widget=forms.TextInput(attrs={"placeholder": "Ex.: agência de marketing digital e desenvolvimento web"}),
+    )
+    publico = forms.CharField(
+        label="Perfil de cliente que você quer encontrar", max_length=250,
+        help_text="Descreva o tipo de negócio ideal, não um cliente específico.",
+        widget=forms.TextInput(attrs={"placeholder": "Ex.: clínicas, salões e restaurantes com pouca presença digital"}),
+    )
+    regiao = forms.CharField(
+        label="Região atendida", max_length=150,
+        help_text="Quanto mais específica, melhores as buscas (cidade ou bairro).",
+        widget=forms.TextInput(attrs={"placeholder": "Ex.: João Pessoa - PB"}),
+    )
+    servicos = forms.ModelMultipleChoiceField(
+        label="Serviços do catálogo", queryset=Servico.objects.none(), widget=forms.CheckboxSelectMultiple,
+        help_text="Dica: marque de 1 a 3 serviços para buscas mais focadas.",
+    )
     salvar = forms.BooleanField(label="Salvar ramo, público e região no cadastro da empresa", required=False)
 
     def __init__(self, request, data=None, *, obrigatorio=True, inicial_salvo=None):
@@ -57,6 +76,24 @@ class CriteriosForm(forms.Form):
         if not obrigatorio:
             for nome in (*CRITERIOS, "servicos"):
                 self.fields[nome].required = False
+
+    def _descricao(self, campo):
+        valor = self.cleaned_data[campo]
+        if valor and PERFIL_OU_LINK.search(valor):
+            raise forms.ValidationError(
+                "Isto parece um @perfil ou um link. Descreva com palavras (veja o exemplo). "
+                "Para analisar um perfil específico, use Leads → Analisar um lead."
+            )
+        return valor
+
+    def clean_ramo(self):
+        return self._descricao("ramo")
+
+    def clean_publico(self):
+        return self._descricao("publico")
+
+    def clean_regiao(self):
+        return self._descricao("regiao")
 
     def clean_salvar(self):
         salvar = self.cleaned_data["salvar"]
@@ -87,15 +124,19 @@ class IdentidadeForm(BuscaLeadForm):
 
 
 class EvidenciaForm(forms.Form):
-    title = forms.CharField(label="Nome ou identificação da fonte", max_length=200, required=False)
+    content = forms.CharField(
+        label="Trecho público encontrado", max_length=2100, required=False,
+        help_text="Cole o texto que você leu na página (post, anúncio, avaliação, descrição do perfil).",
+        widget=forms.Textarea(attrs={"rows": 4, "placeholder": "Ex.: \"Procuro alguém para criar o site da minha clínica em João Pessoa...\""}),
+    )
+    title = forms.CharField(
+        label="Nome da fonte (opcional)", max_length=200, required=False,
+        widget=forms.TextInput(attrs={"placeholder": "Ex.: Instagram da Clínica Sorriso"}),
+    )
     url = forms.URLField(label="Link público (opcional)", max_length=500, required=False, assume_scheme="https")
     published_date = forms.DateField(
         label="Data da publicação (opcional)", required=False,
         widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
-    )
-    content = forms.CharField(
-        label="Trecho público encontrado", max_length=2100, required=False,
-        widget=forms.Textarea(attrs={"rows": 3}),
     )
 
     def clean_url(self):
@@ -111,7 +152,7 @@ class EvidenciaForm(forms.Form):
         return dados
 
 
-Evidencias = forms.formset_factory(EvidenciaForm, extra=3, max_num=3, validate_max=True, absolute_max=3)
+Evidencias = forms.formset_factory(EvidenciaForm, extra=5, max_num=5, validate_max=True, absolute_max=5)
 
 
 def _chave(*partes):

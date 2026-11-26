@@ -260,3 +260,33 @@ class ProspeccaoIATests(TestCase):
         self.client.post(path, {"selecionados": ["0"]})
         self.client.post(path, {"selecionados": ["0"]})
         self.assertEqual(Lead.objects.count(), 1)
+
+    @patch("config.prospeccao_views.sugerir_consultas", return_value=["Clínicas sem site em João Pessoa"])
+    def test_pagina_guia_pesquisa_e_aceita_cinco_evidencias(self, sugerir):
+        self.selecionar(self.agencia)
+        url = reverse("prospeccao_iniciar", args=["oportunidades"])
+        pagina = self.client.get(url)
+        self.assertContains(pagina, "Descreva sua empresa")
+        self.assertContains(pagina, "Ex.: João Pessoa - PB")
+        self.assertEqual(pagina.context["evidencias"].total_form_count(), 5)
+        resposta = self.client.post(url, self.campos(self.agencia, self.landing, acao="sugerir"))
+        self.assertContains(resposta, "https://www.google.com/search?q=Cl%C3%ADnicas%20sem%20site%20em%20Jo%C3%A3o%20Pessoa")
+        self.assertContains(resposta, 'data-copiar="Clínicas sem site em João Pessoa"')
+
+    @patch("config.prospeccao_views.sugerir_consultas")
+    def test_criterios_recusam_perfil_ou_link(self, sugerir):
+        self.selecionar(self.agencia)
+        url = reverse("prospeccao_iniciar", args=["oportunidades"])
+        for campo, valor in (
+            ("criterios-ramo", "m.fatimatavares"),
+            ("criterios-publico", "@ m.fatimatavares"),
+            ("criterios-regiao", "https://instagram.com/x"),
+        ):
+            resposta = self.client.post(url, self.campos(self.agencia, self.landing, acao="sugerir", **{campo: valor}))
+            self.assertContains(resposta, "parece um @perfil ou um link")
+        sugerir.assert_not_called()
+        resposta = self.client.post(url, self.campos(
+            self.agencia, self.landing, acao="sugerir",
+            **{"criterios-ramo": "Agência de marketing digital", "criterios-regiao": "João Pessoa - PB"},
+        ))
+        self.assertNotContains(resposta, "parece um @perfil ou um link")

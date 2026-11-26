@@ -11,3 +11,13 @@
 .prospecting-evidence { margin-top: 8px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; }
 .prospecting-evidence summary { cursor: pointer; font-weight: 650; }
 .prospecting-evidence .record-field { margin-top: 8px; }
+.prospecting-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 6px; padding: 0; list-style: none; counter-reset: passo; }
+.prospecting-steps li { counter-increment: passo; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); }
+.prospecting-steps li::before { content: counter(passo); display: inline-grid; place-items: center; width: 22px; height: 22px; margin-inline-end: 6px; border-radius: 50%; background: var(--purple); color: #fff; font-size: .8rem; font-weight: 700; }
+.prospecting-steps strong { font-size: .95rem; }
+.prospecting-steps span { display: block; margin-top: 4px; color: var(--muted); font-size: .85rem; line-height: 1.4; }
+.prospecting-queries { margin: 6px 0 0; padding: 0; list-style: none; }
+.prospecting-queries li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.prospecting-query-text { flex: 1 1 260px; }
+.prospecting-query-actions { display: flex; gap: 6px; }
+@media (max-width: 760px) { .prospecting-steps { grid-template-columns: 1fr; } }
