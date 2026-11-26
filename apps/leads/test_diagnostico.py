@@ -112,3 +112,19 @@ class RelatorioOportunidadeTests(TestCase):
     def test_indice_invalido(self):
         resposta = self.client.post(reverse("prospeccao_pesquisa", args=[self.pesquisa.pk]), {"relatorio": "9"})
         self.assertEqual(resposta.status_code, 400)
+
+
+class DiagnosticoLinktreeTests(TestCase):
+    def test_links_do_linktree_nao_viram_site_citado(self):
+        texto = (
+            "https://www.google.com/maps/place/Evolusom/@-7.1,-34.8,17z\n"
+            "https://api.whatsapp.com/send/?phone=5583996112970&text&type=phone_number\n"
+            "https://www.instagram.com/equipadoraevolusom/"
+        )
+        d = diagnosticar(candidato_manual(texto), [fonte(texto)], SERVICOS)
+        situacao = {c["codigo"]: c["situacao"] for c in d["canais"]}
+        self.assertEqual(situacao["instagram"], "encontrado")
+        self.assertEqual(situacao["whatsapp"], "encontrado")
+        self.assertEqual(situacao["google"], "encontrado")
+        self.assertEqual(situacao["site"], "nao")
+        self.assertEqual({p["codigo"] for p in d["perdas"]}, {"facebook", "site", "landing"})

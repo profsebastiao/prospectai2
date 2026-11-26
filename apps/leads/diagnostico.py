@@ -106,7 +106,8 @@ def diagnosticar(candidato, fontes, servicos=(), cidade=""):
     if candidato.get("descricao"):
         textos.append(candidato["descricao"])
     texto = "\n".join(t for t in textos if t)
-    minusculo = texto.casefold()
+    # Menções no texto são procuradas fora dos links, para "www." de um link não contar como site.
+    minusculo = URLS.sub(" ", texto).casefold()
 
     presenca = {codigo: {"codigo": codigo, "canal": nome, "itens": [], "situacao": "nao"} for codigo, nome in CANAIS}
 
